@@ -24,6 +24,8 @@ export interface SkolaUser {
   _id: string;
   id?: string;
   email: string;
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   name?: string;
   role: UserRole;

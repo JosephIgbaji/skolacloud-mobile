@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Users, CreditCard, Clock, User } from 'lucide-react-native';
+import { Home, Users, CreditCard, Clock, Menu } from 'lucide-react-native';
 
 export default function TabsLayout() {
   return (
@@ -52,10 +52,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="menu"
+        options={{
+          title: 'More',
+          tabBarIcon: ({ color, size }) => <Menu size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          href: null, // Hidden from tab bar, accessible via More menu
         }}
       />
     </Tabs>
