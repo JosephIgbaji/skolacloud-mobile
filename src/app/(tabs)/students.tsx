@@ -97,6 +97,7 @@ export default function StudentsScreen() {
 
   // Add & Edit Student Form Modal State
   const [showStudentFormModal, setShowStudentFormModal] = useState(false);
+  const [showClassPickerModal, setShowClassPickerModal] = useState(false);
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [activeFormTab, setActiveFormTab] = useState<'basic' | 'guardian' | 'health' | 'account'>('basic');
@@ -105,15 +106,19 @@ export default function StudentsScreen() {
 
   // Fetch Classes List for Filter, Promotion & Form Selection
   const { data: classesList = [] } = useQuery({
-    queryKey: ['school-classes'],
+    queryKey: ['school-classes', rawRole],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/classes');
+        let endpoint = '/admin/classes';
+        if (rawRole === 'teacher') endpoint = '/teacher/classes';
+
+        const res = await apiClient.get(endpoint, { params: { limit: 100 } });
         const raw = res.data;
         if (Array.isArray(raw)) return raw;
         if (Array.isArray(raw?.data)) return raw.data;
         return [];
-      } catch {
+      } catch (e) {
+        console.error('Failed to fetch classes:', e);
         return [];
       }
     },
@@ -782,24 +787,18 @@ export default function StudentsScreen() {
 
                   <View style={styles.formGroup}>
                     <ThemedText style={styles.formLabel}>Class *</ThemedText>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                      {classesList.map((c: any) => {
-                        const cId = c._id || c.id;
-                        const isSelected = studentForm.classId === cId;
-                        const label = c.grade && c.name ? `${c.grade} - ${c.name}` : c.grade || c.name || 'Class';
-                        return (
-                          <TouchableOpacity
-                            key={cId}
-                            style={[styles.classPill, isSelected && styles.classPillActive]}
-                            onPress={() => setStudentForm((p) => ({ ...p, classId: cId }))}
-                          >
-                            <ThemedText style={[styles.classPillText, isSelected && styles.classPillTextActive]}>
-                              {label}
-                            </ThemedText>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
+                    <TouchableOpacity
+                      style={styles.formInputSelect}
+                      onPress={() => setShowClassPickerModal(true)}
+                    >
+                      <ThemedText style={studentForm.classId ? styles.formInputSelectText : styles.formInputPlaceholder}>
+                        {(() => {
+                          const found = classesList.find((c: any) => (c._id || c.id) === studentForm.classId);
+                          return found ? (found.grade && found.name ? `${found.grade} - ${found.name}` : found.grade || found.name) : 'Select Class';
+                        })()}
+                      </ThemedText>
+                      <ChevronRight size={18} color="#94a3b8" />
+                    </TouchableOpacity>
                   </View>
 
                   <View style={styles.formGroup}>
@@ -1019,6 +1018,49 @@ export default function StudentsScreen() {
                   </ThemedText>
                 )}
               </TouchableOpacity>
+            </ScrollView>
+          </ThemedView>
+        </View>
+      </Modal>
+
+      {/* Class Selector Picker Modal */}
+      <Modal visible={showClassPickerModal} transparent animationType="slide" onRequestClose={() => setShowClassPickerModal(false)}>
+        <View style={styles.modalOverlay}>
+          <ThemedView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Select Class</ThemedText>
+              <TouchableOpacity onPress={() => setShowClassPickerModal(false)}>
+                <X size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 280, marginVertical: 12 }}>
+              {classesList.length === 0 ? (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <ThemedText style={{ color: '#94a3b8' }}>No active classes registered.</ThemedText>
+                </View>
+              ) : (
+                classesList.map((c: any) => {
+                  const cId = c._id || c.id;
+                  const isSelected = studentForm.classId === cId;
+                  const label = c.grade && c.name ? `${c.grade} - ${c.name}` : c.grade || c.name || 'Class';
+                  return (
+                    <TouchableOpacity
+                      key={cId}
+                      style={[styles.classSelectItem, isSelected && styles.classSelectItemActive]}
+                      onPress={() => {
+                        setStudentForm((p) => ({ ...p, classId: cId }));
+                        setShowClassPickerModal(false);
+                      }}
+                    >
+                      <ThemedText style={[styles.classSelectText, isSelected && styles.classSelectTextActive]}>
+                        {label}
+                      </ThemedText>
+                      {isSelected && <Check size={18} color="#38bdf8" />}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
           </ThemedView>
         </View>
@@ -1480,6 +1522,26 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     paddingHorizontal: 12,
     height: 42,
+    fontSize: 14,
+  },
+  formInputSelect: {
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    height: 42,
+  },
+  formInputSelectText: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  formInputPlaceholder: {
+    color: '#64748b',
     fontSize: 14,
   },
   genderRow: {
