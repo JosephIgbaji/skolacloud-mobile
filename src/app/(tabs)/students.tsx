@@ -130,7 +130,8 @@ export default function StudentsScreen() {
             {filteredStudents.map((item, idx) => {
               const displayName = `${item.firstName || ''} ${item.lastName || ''}`.trim() || item.fullName || item.name || 'Student';
               const admNo = item.admissionNo || item.admissionNumber || `ID-${item._id?.substring(0, 6)}`;
-              const className = item.className || item.class?.name || item.classId?.name || 'Unassigned';
+              const classObj = item.classId || item.class;
+              const className = item.className || (typeof classObj === 'object' && classObj ? (classObj.name ? `${classObj.grade ? classObj.grade + ' ' : ''}${classObj.name}` : classObj.grade || 'Unassigned') : 'Unassigned');
               const status = item.status ? item.status.toUpperCase() : item.isActive !== false ? 'ACTIVE' : 'INACTIVE';
 
               return (
