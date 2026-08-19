@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -47,6 +48,7 @@ export default function AcademicSetupScreen() {
     name: '',
     startDate: '',
     endDate: '',
+    autoCreateTerms: true,
   });
 
   const [termForm, setTermForm] = useState({
@@ -117,13 +119,15 @@ export default function AcademicSetupScreen() {
         name: sessionForm.name.trim(),
         startDate: sessionForm.startDate,
         endDate: sessionForm.endDate,
+        autoCreateTerms: sessionForm.autoCreateTerms,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-terms'] });
       setShowSessionModal(false);
-      setSessionForm({ name: '', startDate: '', endDate: '' });
-      Alert.alert('Success', 'Academic session created successfully!');
+      setSessionForm({ name: '', startDate: '', endDate: '', autoCreateTerms: true });
+      Alert.alert('Success', 'Academic session & 3 terms created successfully!');
     },
     onError: (err: any) => {
       Alert.alert('Error', err.response?.data?.message || 'Failed to create academic session.');
@@ -417,6 +421,18 @@ export default function AcademicSetupScreen() {
               placeholder="Select End Date"
             />
 
+            <View style={styles.autoTermCard}>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.autoTermTitle}>Auto-Create 3 Terms (1st, 2nd, 3rd)</ThemedText>
+                <ThemedText style={styles.autoTermSub}>Automatically provisions standard Nigerian terms for this session</ThemedText>
+              </View>
+              <Switch
+                value={sessionForm.autoCreateTerms}
+                onValueChange={(val) => setSessionForm((p) => ({ ...p, autoCreateTerms: val }))}
+                trackColor={{ false: '#334155', true: '#0284c7' }}
+              />
+            </View>
+
             <TouchableOpacity
               style={[styles.saveBtn, (!sessionForm.name || !sessionForm.startDate || !sessionForm.endDate) && styles.btnDisabled]}
               disabled={!sessionForm.name || !sessionForm.startDate || !sessionForm.endDate || createSessionMutation.isPending}
@@ -584,6 +600,9 @@ const styles = StyleSheet.create({
   formGroup: { marginBottom: 12 },
   formLabel: { fontSize: 12, fontWeight: 'bold', color: '#94a3b8', marginBottom: 6 },
   formInput: { backgroundColor: '#0f172a', borderRadius: 10, borderWidth: 1, borderColor: '#334155', color: '#f8fafc', paddingHorizontal: 12, height: 42, fontSize: 14 },
+  autoTermCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0f172a', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#334155', marginVertical: 8 },
+  autoTermTitle: { fontSize: 13, fontWeight: 'bold', color: '#f8fafc' },
+  autoTermSub: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
   saveBtn: { backgroundColor: '#0284c7', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 12 },
   saveBtnText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
   btnDisabled: { opacity: 0.5 },
