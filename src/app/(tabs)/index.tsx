@@ -7,15 +7,16 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
-  FileSpreadsheet,
   GraduationCap,
   Laptop,
   LogOut,
   Megaphone,
   School as SchoolIcon,
-  ShieldAlert,
   UserCheck,
   Users,
+  Building2,
+  DollarSign,
+  Award,
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
@@ -47,7 +48,7 @@ export default function HomeScreen() {
 
   const schoolName = user?.school?.name || 'SkolaCloud Academy';
   const rawRole = (user?.role || 'student').toLowerCase();
-  
+
   // Format role label for display
   const roleLabel = useMemo(() => {
     switch (rawRole) {
@@ -68,7 +69,7 @@ export default function HomeScreen() {
     }
   }, [rawRole]);
 
-  // Fetch Dashboard Stats based on role
+  // Fetch Dashboard Stats based on role from backend
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard-analytics', rawRole],
     queryFn: async () => {
@@ -82,8 +83,11 @@ export default function HomeScreen() {
         } else if (rawRole === 'teacher') {
           const res = await apiClient.get('/analytics/teacher-dashboard').catch(() => null);
           return res?.data || null;
+        } else if (rawRole === 'accountant') {
+          const res = await apiClient.get('/analytics/accountant-dashboard').catch(() => null);
+          return res?.data || null;
         } else {
-          const res = await apiClient.get('/analytics/admin-dashboard').catch(() => null);
+          const res = await apiClient.get('/admin/analytics/dashboard').catch(() => null);
           return res?.data || null;
         }
       } catch {
@@ -123,7 +127,7 @@ export default function HomeScreen() {
               <SchoolIcon size={14} color="#38bdf8" style={{ marginRight: 5 }} />
               <ThemedText style={styles.schoolBadge} numberOfLines={1}>{schoolName}</ThemedText>
             </View>
-            <ThemedText type="title" style={styles.welcomeText} numberOfLines={1}>
+            <ThemedText style={styles.welcomeText} numberOfLines={1}>
               Welcome, {userDisplayName.split(' ')[0]} 👋
             </ThemedText>
           </View>
@@ -161,39 +165,151 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {(rawRole === 'admin' || rawRole === 'super_admin' || rawRole === 'superadmin' || rawRole === 'accountant') && (
+          {(rawRole === 'admin' || rawRole === 'super_admin' || rawRole === 'superadmin') && (
             <View style={styles.heroBody}>
               <ThemedText style={styles.heroTitle}>School Command Center</ThemedText>
               <ThemedText style={styles.heroSub}>Manage enrollment, staff attendance, fees, and operations.</ThemedText>
             </View>
           )}
 
-          {/* Quick Metrics Bar */}
+          {rawRole === 'accountant' && (
+            <View style={styles.heroBody}>
+              <ThemedText style={styles.heroTitle}>Finance & Invoicing Command</ThemedText>
+              <ThemedText style={styles.heroSub}>Fee collections, invoicing, payment tracking & reports.</ThemedText>
+            </View>
+          )}
+
+          {/* Quick Metrics Bar - Role Scoped */}
           <View style={styles.metricsRow}>
-            <View style={styles.metricItem}>
-              <ThemedText style={styles.metricValue}>
-                {dashboardData?.students ?? 0}
-              </ThemedText>
-              <ThemedText style={styles.metricLabel}>Students</ThemedText>
-            </View>
+            {/* Admin Metrics */}
+            {(rawRole === 'admin' || rawRole === 'super_admin' || rawRole === 'superadmin') && (
+              <>
+                <View style={styles.metricItem}>
+                  <ThemedText style={styles.metricValue}>
+                    {dashboardData?.students ?? 0}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Students</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#facc15' }]}>
+                    {dashboardData?.teachers ?? 0}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Teachers</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#4ade80' }]}>
+                    {dashboardData?.classes ?? 1}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Classes</ThemedText>
+                </View>
+              </>
+            )}
 
-            <View style={styles.metricDivider} />
+            {/* Teacher Metrics */}
+            {rawRole === 'teacher' && (
+              <>
+                <View style={styles.metricItem}>
+                  <ThemedText style={styles.metricValue}>
+                    {dashboardData?.myClassesCount ?? 0}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>My Classes</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#38bdf8' }]}>
+                    {dashboardData?.mySubjectsCount ?? 0}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>My Subjects</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#4ade80' }]}>
+                    {dashboardData?.todayPeriodsCount ?? 0}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Periods Today</ThemedText>
+                </View>
+              </>
+            )}
 
-            <View style={styles.metricItem}>
-              <ThemedText style={[styles.metricValue, { color: '#facc15' }]}>
-                {dashboardData?.teachers ?? 0}
-              </ThemedText>
-              <ThemedText style={styles.metricLabel}>Teachers</ThemedText>
-            </View>
+            {/* Student Metrics */}
+            {rawRole === 'student' && (
+              <>
+                <View style={styles.metricItem}>
+                  <ThemedText style={styles.metricValue}>
+                    {dashboardData?.attendancePercentage ? `${dashboardData.attendancePercentage}%` : '100%'}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Attendance</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#c084fc' }]}>
+                    {dashboardData?.enrolledSubjectsCount ?? 0}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Subjects</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#4ade80' }]}>
+                    {dashboardData?.feeStatus || 'Cleared'}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Fee Status</ThemedText>
+                </View>
+              </>
+            )}
 
-            <View style={styles.metricDivider} />
+            {/* Parent Metrics */}
+            {rawRole === 'parent' && (
+              <>
+                <View style={styles.metricItem}>
+                  <ThemedText style={styles.metricValue}>
+                    {dashboardData?.wardsCount ?? 1}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Wards</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#38bdf8' }]}>
+                    {dashboardData?.wardAttendanceRate ? `${dashboardData.wardAttendanceRate}%` : '100%'}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Attendance</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#facc15' }]}>
+                    {dashboardData?.pendingFees ? `₦${dashboardData.pendingFees.toLocaleString()}` : 'Cleared'}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Balance</ThemedText>
+                </View>
+              </>
+            )}
 
-            <View style={styles.metricItem}>
-              <ThemedText style={[styles.metricValue, { color: '#4ade80' }]}>
-                {dashboardData?.classes ?? 1}
-              </ThemedText>
-              <ThemedText style={styles.metricLabel}>Classes</ThemedText>
-            </View>
+            {/* Accountant Metrics */}
+            {rawRole === 'accountant' && (
+              <>
+                <View style={styles.metricItem}>
+                  <ThemedText style={styles.metricValue}>
+                    {dashboardData?.collectedRevenue ? `₦${(dashboardData.collectedRevenue / 1000).toFixed(0)}k` : '₦0'}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Collected</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#facc15' }]}>
+                    {dashboardData?.outstandingFees ? `₦${(dashboardData.outstandingFees / 1000).toFixed(0)}k` : '₦0'}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Pending</ThemedText>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <ThemedText style={[styles.metricValue, { color: '#4ade80' }]}>
+                    {dashboardData?.invoicesCount ?? 0}
+                  </ThemedText>
+                  <ThemedText style={styles.metricLabel}>Invoices</ThemedText>
+                </View>
+              </>
+            )}
           </View>
         </Card>
 
@@ -204,7 +320,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.gridContainer}>
-          {/* Action 1: Students Roster */}
+          {/* Action 1: Students Directory */}
           <TouchableOpacity
             activeOpacity={0.75}
             style={[styles.gridCard, { borderColor: 'rgba(56, 189, 248, 0.25)' }]}
@@ -263,58 +379,25 @@ export default function HomeScreen() {
             <Badge label="Finance" variant="gold" />
           </TouchableOpacity>
 
-          {/* Action 5: CBT Exams & Quizzes */}
+          {/* Action 4: Account Profile */}
           <TouchableOpacity
             activeOpacity={0.75}
-            style={[styles.gridCard, { borderColor: 'rgba(56, 189, 248, 0.25)' }]}
+            style={[styles.gridCard, { borderColor: 'rgba(192, 132, 252, 0.25)' }]}
             onPress={() => router.push('/profile')}
           >
             <View style={styles.cardHeaderRow}>
-              <View style={[styles.iconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-                <Laptop size={22} color="#38bdf8" />
+              <View style={[styles.iconBox, { backgroundColor: 'rgba(192, 132, 252, 0.15)' }]}>
+                <BookOpen size={22} color="#c084fc" />
               </View>
               <View style={styles.arrowBox}>
-                <ArrowUpRight size={14} color="#38bdf8" />
+                <ArrowUpRight size={14} color="#c084fc" />
               </View>
             </View>
-            <ThemedText style={styles.gridTitle}>CBT Practice</ThemedText>
-            <ThemedText style={styles.gridSub}>Online tests & quizzes</ThemedText>
-            <Badge label="CBT Engine" variant="info" />
-          </TouchableOpacity>
-
-          {/* Action 6: School Noticeboard */}
-          <TouchableOpacity
-            activeOpacity={0.75}
-            style={[styles.gridCard, { borderColor: 'rgba(244, 114, 182, 0.25)' }]}
-            onPress={() => router.push('/profile')}
-          >
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.iconBox, { backgroundColor: 'rgba(244, 114, 182, 0.15)' }]}>
-                <Megaphone size={22} color="#f472b6" />
-              </View>
-              <View style={styles.arrowBox}>
-                <ArrowUpRight size={14} color="#f472b6" />
-              </View>
-            </View>
-            <ThemedText style={styles.gridTitle}>Notices</ThemedText>
-            <ThemedText style={styles.gridSub}>School announcements</ThemedText>
-            <Badge label="Events" variant="neutral" />
+            <ThemedText style={styles.gridTitle}>Account Profile</ThemedText>
+            <ThemedText style={styles.gridSub}>School & settings</ThemedText>
+            <Badge label="Settings" variant="info" />
           </TouchableOpacity>
         </View>
-
-        {/* Noticeboard Feed Banner */}
-        <Card style={styles.noticeCard}>
-          <View style={styles.noticeHeader}>
-            <View style={styles.noticeIconBox}>
-              <Megaphone size={20} color="#38bdf8" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={styles.noticeTitle}>School Announcement</ThemedText>
-              <ThemedText style={styles.noticeSub}>Parent-Teacher Conference & Resumption Schedule</ThemedText>
-            </View>
-          </View>
-        </Card>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -330,8 +413,8 @@ const styles = StyleSheet.create({
   },
   topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
     marginTop: 8,
   },
@@ -341,10 +424,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   schoolBadge: {
-    color: '#38bdf8',
     fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    color: '#38bdf8',
+    fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   welcomeText: {
@@ -353,31 +435,35 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
   },
   logoutButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(248, 113, 113, 0.1)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#1e293b',
     borderWidth: 1,
-    borderColor: 'rgba(248, 113, 113, 0.2)',
+    borderColor: '#334155',
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
     marginBottom: 24,
   },
   heroHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   dateText: {
     fontSize: 12,
     color: '#94a3b8',
-    fontWeight: '600',
   },
   heroBody: {
-    marginBottom: 18,
+    marginBottom: 20,
   },
   heroTitle: {
     fontSize: 20,
@@ -386,19 +472,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroSub: {
-    fontSize: 13,
-    color: '#cbd5e1',
-    lineHeight: 18,
+    fontSize: 14,
+    color: '#94a3b8',
+    lineHeight: 20,
   },
   metricsRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderRadius: 16,
-    padding: 14,
-    justifyContent: 'space-around',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: '#334155',
   },
   metricItem: {
     alignItems: 'center',
@@ -413,18 +500,17 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 11,
     color: '#94a3b8',
-    fontWeight: '500',
   },
   metricDivider: {
     width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    height: 24,
+    backgroundColor: '#334155',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
+    alignItems: 'baseline',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
@@ -433,29 +519,20 @@ const styles = StyleSheet.create({
   },
   sectionSubTitle: {
     fontSize: 12,
-    color: '#64748b',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#94a3b8',
   },
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
-    marginBottom: 24,
+    gap: 12,
   },
   gridCard: {
-    width: '48.5%',
+    width: '48%',
     backgroundColor: '#1e293b',
-    borderRadius: 22,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 3,
+    marginBottom: 4,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -464,17 +541,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   arrowBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -482,38 +559,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   gridSub: {
     fontSize: 12,
     color: '#94a3b8',
-    marginBottom: 10,
-  },
-  noticeCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-    borderColor: 'rgba(56, 189, 248, 0.2)',
-  },
-  noticeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  noticeIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  noticeTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#f8fafc',
-    marginBottom: 2,
-  },
-  noticeSub: {
-    fontSize: 12,
-    color: '#94a3b8',
+    marginBottom: 12,
   },
 });
