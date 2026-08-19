@@ -29,8 +29,8 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
 
   const currentDate = parseDate(value);
 
-  const handleNativeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (event.type === 'dismissed') {
+  const handleNativeChange = (event: any, selectedDate?: Date) => {
+    if (event?.type === 'dismissed') {
       setShowPicker(false);
       return;
     }
@@ -43,6 +43,10 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
       const dd = String(selectedDate.getDate()).padStart(2, '0');
       onChange(`${yyyy}-${mm}-${dd}`);
     }
+  };
+
+  const handleDismiss = () => {
+    setShowPicker(false);
   };
 
   const formatDateDisplay = (str: string) => {
@@ -112,7 +116,8 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
                   mode="date"
                   display="spinner"
                   textColor="#f8fafc"
-                  onChange={handleNativeChange}
+                  onValueChange={handleNativeChange}
+                  onDismiss={handleDismiss}
                 />
               </View>
             </TouchableOpacity>
@@ -122,7 +127,8 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
             value={currentDate}
             mode="date"
             display="default"
-            onChange={handleNativeChange}
+            onValueChange={handleNativeChange}
+            onDismiss={handleDismiss}
           />
         )
       )}
