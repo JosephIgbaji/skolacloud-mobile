@@ -16,6 +16,10 @@ export const apiClient = axios.create({
 // Request Interceptor to attach Access Token and Subdomain
 apiClient.interceptors.request.use(
   async (config) => {
+    if (!config.headers['Content-Type']) {
+      config.headers['Content-Type'] = 'application/json';
+    }
+
     const token = await storage.getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
