@@ -15,8 +15,8 @@ export default function StudentsScreen() {
   const { user } = useAuth();
   const rawRole = (user?.role || 'student').toLowerCase();
 
-  // Fetch real students from backend API
-  const { data, isLoading, isError, refetch } = useQuery({
+  // Fetch real students from backend API with limit=500 for full school directory
+  const { data: responseData, isLoading, isError, refetch } = useQuery({
     queryKey: ['students-list', rawRole],
     queryFn: async () => {
       let endpoint = '/admin/students';
@@ -24,16 +24,29 @@ export default function StudentsScreen() {
       if (rawRole === 'parent') endpoint = '/parent/students';
       if (rawRole === 'student') endpoint = '/student/profile';
 
-      const res = await apiClient.get(endpoint);
+      const res = await apiClient.get(endpoint, { params: { limit: 500 } });
       const rawData = res.data;
-      if (Array.isArray(rawData)) return rawData;
-      if (Array.isArray(rawData?.data)) return rawData.data;
-      if (Array.isArray(rawData?.students)) return rawData.students;
-      return [];
+
+      let list: any[] = [];
+      let totalCount = 0;
+
+      if (Array.isArray(rawData)) {
+        list = rawData;
+        totalCount = rawData.length;
+      } else if (Array.isArray(rawData?.data)) {
+        list = rawData.data;
+        totalCount = rawData.total || rawData.data.length;
+      } else if (Array.isArray(rawData?.students)) {
+        list = rawData.students;
+        totalCount = rawData.total || rawData.students.length;
+      }
+
+      return { list, totalCount };
     },
   });
 
-  const studentsList: any[] = data || [];
+  const studentsList: any[] = responseData?.list || [];
+  const totalEnrolled: number = responseData?.totalCount || studentsList.length;
 
   const filteredStudents = studentsList.filter((s) => {
     const fullName = `${s.firstName || ''} ${s.lastName || ''} ${s.fullName || s.name || ''}`.trim().toLowerCase();
@@ -72,13 +85,13 @@ export default function StudentsScreen() {
         <View style={styles.statsRow}>
           <ThemedView style={styles.statCard}>
             <GraduationCap size={20} color="#38bdf8" style={{ marginBottom: 6 }} />
-            <ThemedText style={styles.statNumber}>{studentsList.length}</ThemedText>
+            <ThemedText style={styles.statNumber}>{totalEnrolled}</ThemedText>
             <ThemedText style={styles.statLabel}>Enrolled Students</ThemedText>
           </ThemedView>
           <ThemedView style={styles.statCard}>
             <Building2 size={20} color="#4ade80" style={{ marginBottom: 6 }} />
             <ThemedText style={[styles.statNumber, { color: '#4ade80' }]}>
-              {Math.max(1, Math.ceil(studentsList.length / 30))}
+              {Math.max(1, Math.ceil(totalEnrolled / 30))}
             </ThemedText>
             <ThemedText style={styles.statLabel}>Active Classes</ThemedText>
           </ThemedView>
@@ -86,7 +99,7 @@ export default function StudentsScreen() {
 
         {/* Student Roster Section */}
         <ThemedText style={styles.sectionTitle}>
-          Student Roster ({filteredStudents.length})
+          Student Roster ({filteredStudents.length} of {totalEnrolled})
         </ThemedText>
 
         {isLoading ? (
@@ -116,7 +129,7 @@ export default function StudentsScreen() {
               const displayName = `${item.firstName || ''} ${item.lastName || ''}`.trim() || item.fullName || item.name || 'Student';
               const admNo = item.admissionNo || item.admissionNumber || `ID-${item._id?.substring(0, 6)}`;
               const className = item.className || item.class?.name || item.classId?.name || 'Unassigned';
-              const status = item.isActive !== false ? 'Active' : 'Inactive';
+              const status = item.status ? item.status.toUpperCase() : item.isActive !== false ? 'ACTIVE' : 'INACTIVE';
 
               return (
                 <View key={item._id || item.id || idx}>
@@ -133,7 +146,7 @@ export default function StudentsScreen() {
                         {admNo} • <ThemedText style={{ color: '#38bdf8' }}>{className}</ThemedText>
                       </ThemedText>
                     </View>
-                    <Badge label={status} variant={status === 'Active' ? 'success' : 'neutral'} size="sm" />
+                    <Badge label={status} variant={status === 'ACTIVE' || status === 'ACTIVE' ? 'success' : 'neutral'} size="sm" />
                   </TouchableOpacity>
                 </View>
               );
