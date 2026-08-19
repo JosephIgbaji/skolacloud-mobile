@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Clock, Calendar, User } from 'lucide-react-native';
+import { Home, Users, CreditCard, Clock, User } from 'lucide-react-native';
 
 export default function TabsLayout() {
   return (
@@ -13,13 +13,13 @@ export default function TabsLayout() {
           backgroundColor: '#0f172a',
           borderTopColor: '#1e293b',
           borderTopWidth: 1,
-          height: 60,
+          height: 62,
           paddingBottom: 8,
           paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
         },
       }}
     >
@@ -31,17 +31,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="students"
+        options={{
+          title: 'Students',
+          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="fees"
+        options={{
+          title: 'Fees',
+          tabBarIcon: ({ color, size }) => <CreditCard size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="attendance"
         options={{
           title: 'Attendance',
           tabBarIcon: ({ color, size }) => <Clock size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="leave"
-        options={{
-          title: 'Leave',
-          tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
         }}
       />
       <Tabs.Screen
