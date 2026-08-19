@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "SkolaCloud",
+    "slug": "skolacloud",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/PNG/1-8.png",
+    "scheme": "skolacloud",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/PNG/1-8.png"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f172a",
+        "foregroundImage": "./assets/PNG/1-8.png",
+        "monochromeImage": "./assets/PNG/1-8.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/PNG/1-8.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0f172a",
+          "image": "./assets/PNG/8-8.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0f172a",
+            "image": "./assets/PNG/8-8.png"
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
