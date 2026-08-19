@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -25,6 +26,9 @@ import {
   UserPlus,
   Pencil,
   X,
+  User,
+  HeartPulse,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -33,6 +37,43 @@ import { ThemedView } from '@/components/themed-view';
 import { Badge } from '@/components/ui/badge';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
+
+const initialStudentFormState = {
+  firstName: '',
+  lastName: '',
+  middleName: '',
+  admissionNumber: '',
+  gender: 'male' as 'male' | 'female',
+  dateOfBirth: '',
+  placeOfBirth: '',
+  address: '',
+  nationality: 'Nigerian',
+  stateOfOrigin: '',
+  lga: '',
+  religion: '',
+  parentPhone: '',
+  classId: '',
+  previousSchool: '',
+  reasonForLeaving: '',
+  guardian: {
+    name: '',
+    relationship: 'Father',
+    phone: '',
+    email: '',
+    occupation: '',
+    address: '',
+  },
+  healthInfo: {
+    bloodGroup: '',
+    genotype: '',
+    allergies: '',
+    chronicConditions: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+  },
+  createStudentAccount: false,
+  createParentAccount: false,
+};
 
 export default function StudentsScreen() {
   const { user } = useAuth();
@@ -44,8 +85,8 @@ export default function StudentsScreen() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // all, active, inactive, graduated
-  const [genderFilter, setGenderFilter] = useState('all'); // all, male, female
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [genderFilter, setGenderFilter] = useState('all');
   const [selectedClassId, setSelectedClassId] = useState('');
 
   // Action Modal State
@@ -54,24 +95,15 @@ export default function StudentsScreen() {
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [targetPromoteClassId, setTargetPromoteClassId] = useState('');
 
-  // Add & Edit Student Form State
+  // Add & Edit Student Form Modal State
   const [showStudentFormModal, setShowStudentFormModal] = useState(false);
   const [isEditingStudent, setIsEditingStudent] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [activeFormTab, setActiveFormTab] = useState<'basic' | 'guardian' | 'health' | 'account'>('basic');
 
-  const [studentForm, setStudentForm] = useState({
-    firstName: '',
-    lastName: '',
-    middleName: '',
-    admissionNumber: '',
-    gender: 'male',
-    parentPhone: '',
-    classId: '',
-    address: '',
-    stateOfOrigin: '',
-  });
+  const [studentForm, setStudentForm] = useState(initialStudentFormState);
 
-  // 1. Fetch Classes List for Filter, Promotion & Form Selection
+  // Fetch Classes List for Filter, Promotion & Form Selection
   const { data: classesList = [] } = useQuery({
     queryKey: ['school-classes'],
     queryFn: async () => {
@@ -87,7 +119,7 @@ export default function StudentsScreen() {
     },
   });
 
-  // 2. Fetch Paginated & Filtered Students from Backend API
+  // Fetch Paginated & Filtered Students from Backend API
   const { data: studentsResponse, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['students-table', rawRole, page, limit, search, statusFilter, genderFilter, selectedClassId],
     staleTime: 0,
@@ -97,10 +129,7 @@ export default function StudentsScreen() {
       if (rawRole === 'parent') endpoint = '/parent/students';
       if (rawRole === 'student') endpoint = '/student/profile';
 
-      const params: any = {
-        page,
-        limit,
-      };
+      const params: any = { page, limit };
       if (search.trim()) params.search = search.trim();
       if (statusFilter !== 'all') params.status = statusFilter;
       if (genderFilter !== 'all') params.gender = genderFilter;
@@ -135,16 +164,10 @@ export default function StudentsScreen() {
   const handleOpenAddStudent = () => {
     setIsEditingStudent(false);
     setEditingStudentId(null);
+    setActiveFormTab('basic');
     setStudentForm({
-      firstName: '',
-      lastName: '',
-      middleName: '',
-      admissionNumber: '',
-      gender: 'male',
-      parentPhone: '',
+      ...initialStudentFormState,
       classId: classesList[0]?._id || classesList[0]?.id || '',
-      address: '',
-      stateOfOrigin: '',
     });
     setShowStudentFormModal(true);
   };
@@ -152,6 +175,7 @@ export default function StudentsScreen() {
   const handleOpenEditStudent = (student: any) => {
     setIsEditingStudent(true);
     setEditingStudentId(student._id || student.id);
+    setActiveFormTab('basic');
     const existingClassId = typeof student.classId === 'object' ? student.classId?._id || student.classId?.id : student.classId;
 
     setStudentForm({
@@ -159,11 +183,36 @@ export default function StudentsScreen() {
       lastName: student.lastName || '',
       middleName: student.middleName || '',
       admissionNumber: student.admissionNumber || student.admissionNo || '',
-      gender: (student.gender || 'male').toLowerCase(),
+      gender: (student.gender || 'male').toLowerCase() as 'male' | 'female',
+      dateOfBirth: student.dateOfBirth ? String(student.dateOfBirth).split('T')[0] : '',
+      placeOfBirth: student.placeOfBirth || '',
+      address: student.address || '',
+      nationality: student.nationality || 'Nigerian',
+      stateOfOrigin: student.stateOfOrigin || '',
+      lga: student.lga || '',
+      religion: student.religion || '',
       parentPhone: student.parentPhone || '',
       classId: existingClassId || classesList[0]?._id || '',
-      address: student.address || '',
-      stateOfOrigin: student.stateOfOrigin || '',
+      previousSchool: student.previousSchool || '',
+      reasonForLeaving: student.reasonForLeaving || '',
+      guardian: {
+        name: student.guardian?.name || '',
+        relationship: student.guardian?.relationship || 'Father',
+        phone: student.guardian?.phone || student.parentPhone || '',
+        email: student.guardian?.email || '',
+        occupation: student.guardian?.occupation || '',
+        address: student.guardian?.address || student.address || '',
+      },
+      healthInfo: {
+        bloodGroup: student.healthInfo?.bloodGroup || '',
+        genotype: student.healthInfo?.genotype || '',
+        allergies: Array.isArray(student.healthInfo?.allergies) ? student.healthInfo.allergies.join(', ') : student.healthInfo?.allergies || '',
+        chronicConditions: student.healthInfo?.chronicConditions || '',
+        emergencyContactName: student.healthInfo?.emergencyContactName || '',
+        emergencyContactPhone: student.healthInfo?.emergencyContactPhone || '',
+      },
+      createStudentAccount: false,
+      createParentAccount: false,
     });
     setShowActionModal(false);
     setShowStudentFormModal(true);
@@ -178,18 +227,47 @@ export default function StudentsScreen() {
         middleName: studentForm.middleName.trim(),
         gender: studentForm.gender,
         parentPhone: studentForm.parentPhone.trim(),
+        classId: studentForm.classId,
       };
-      if (studentForm.admissionNumber.trim()) {
-        payload.admissionNumber = studentForm.admissionNumber.trim();
+
+      if (studentForm.admissionNumber.trim()) payload.admissionNumber = studentForm.admissionNumber.trim();
+      if (studentForm.dateOfBirth) payload.dateOfBirth = studentForm.dateOfBirth;
+      if (studentForm.placeOfBirth.trim()) payload.placeOfBirth = studentForm.placeOfBirth.trim();
+      if (studentForm.address.trim()) payload.address = studentForm.address.trim();
+      if (studentForm.nationality) payload.nationality = studentForm.nationality;
+      if (studentForm.stateOfOrigin.trim()) payload.stateOfOrigin = studentForm.stateOfOrigin.trim();
+      if (studentForm.lga.trim()) payload.lga = studentForm.lga.trim();
+      if (studentForm.religion.trim()) payload.religion = studentForm.religion.trim();
+      if (studentForm.previousSchool.trim()) payload.previousSchool = studentForm.previousSchool.trim();
+      if (studentForm.reasonForLeaving.trim()) payload.reasonForLeaving = studentForm.reasonForLeaving.trim();
+
+      // Guardian Sub-document
+      if (studentForm.guardian.name.trim() || studentForm.guardian.phone.trim()) {
+        payload.guardian = {
+          name: studentForm.guardian.name.trim(),
+          relationship: studentForm.guardian.relationship,
+          phone: studentForm.guardian.phone.trim() || studentForm.parentPhone.trim(),
+          email: studentForm.guardian.email.trim(),
+          occupation: studentForm.guardian.occupation.trim(),
+          address: studentForm.guardian.address.trim(),
+        };
       }
-      if (studentForm.classId) {
-        payload.classId = studentForm.classId;
+
+      // Health Sub-document
+      if (studentForm.healthInfo.bloodGroup || studentForm.healthInfo.genotype || studentForm.healthInfo.allergies.trim()) {
+        payload.healthInfo = {
+          bloodGroup: studentForm.healthInfo.bloodGroup,
+          genotype: studentForm.healthInfo.genotype,
+          allergies: studentForm.healthInfo.allergies ? studentForm.healthInfo.allergies.split(',').map((s) => s.trim()) : [],
+          chronicConditions: studentForm.healthInfo.chronicConditions.trim(),
+          emergencyContactName: studentForm.healthInfo.emergencyContactName.trim(),
+          emergencyContactPhone: studentForm.healthInfo.emergencyContactPhone.trim(),
+        };
       }
-      if (studentForm.address.trim()) {
-        payload.address = studentForm.address.trim();
-      }
-      if (studentForm.stateOfOrigin.trim()) {
-        payload.stateOfOrigin = studentForm.stateOfOrigin.trim();
+
+      if (!isEditingStudent) {
+        payload.createStudentAccount = studentForm.createStudentAccount;
+        payload.createParentAccount = studentForm.createParentAccount;
       }
 
       if (isEditingStudent && editingStudentId) {
@@ -293,7 +371,6 @@ export default function StudentsScreen() {
 
         {/* Filter Pills Bar */}
         <View style={styles.filterSection}>
-          {/* Status Tabs */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
             <TouchableOpacity
               style={[styles.filterPill, statusFilter === 'all' && styles.filterPillActive]}
@@ -329,7 +406,6 @@ export default function StudentsScreen() {
             </TouchableOpacity>
           </ScrollView>
 
-          {/* Gender Filter Pills */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
             <TouchableOpacity
               style={[styles.filterPillSm, genderFilter === 'all' && styles.filterPillActive]}
@@ -413,7 +489,6 @@ export default function StudentsScreen() {
                 <View key={item._id || item.id || idx}>
                   {idx > 0 && <View style={styles.tableRowDivider} />}
                   <View style={styles.tableRow}>
-                    {/* Student Info Column */}
                     <View style={{ flex: 2, paddingRight: 6 }}>
                       <ThemedText style={styles.tdName} numberOfLines={1}>
                         {displayName}
@@ -423,14 +498,12 @@ export default function StudentsScreen() {
                       </ThemedText>
                     </View>
 
-                    {/* Class Column */}
                     <View style={{ flex: 1.5, paddingRight: 4 }}>
                       <ThemedText style={styles.tdClass} numberOfLines={1}>
                         {className}
                       </ThemedText>
                     </View>
 
-                    {/* Status Column */}
                     <View style={{ flex: 1, alignItems: 'center' }}>
                       <Badge
                         label={statusRaw.toUpperCase()}
@@ -439,7 +512,6 @@ export default function StudentsScreen() {
                       />
                     </View>
 
-                    {/* Admin Actions Column */}
                     {isAdminOrAccountant && (
                       <TouchableOpacity
                         style={styles.actionIconButton}
@@ -509,7 +581,6 @@ export default function StudentsScreen() {
               </View>
             )}
 
-            {/* Action Option 1: Edit Student Details */}
             <TouchableOpacity
               style={styles.modalActionItem}
               onPress={() => handleOpenEditStudent(activeStudent)}
@@ -517,14 +588,13 @@ export default function StudentsScreen() {
               <Pencil size={20} color="#38bdf8" style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
                 <ThemedText style={styles.actionItemTitle}>Edit Student Details</ThemedText>
-                <ThemedText style={styles.actionItemSub}>Modify name, admission no, phone & class</ThemedText>
+                <ThemedText style={styles.actionItemSub}>Modify basic info, guardian, medical & accounts</ThemedText>
               </View>
               <ChevronRight size={18} color="#64748b" />
             </TouchableOpacity>
 
             <View style={styles.modalDivider} />
 
-            {/* Action Option 2: Promote Student */}
             <TouchableOpacity
               style={styles.modalActionItem}
               onPress={() => {
@@ -542,7 +612,6 @@ export default function StudentsScreen() {
 
             <View style={styles.modalDivider} />
 
-            {/* Action Option 3: Toggle Status */}
             {activeStudent?.status === 'inactive' ? (
               <TouchableOpacity
                 style={styles.modalActionItem}
@@ -574,10 +643,10 @@ export default function StudentsScreen() {
         </View>
       </Modal>
 
-      {/* Add & Edit Student Form Modal */}
+      {/* Complete Web-Parity 4-Tab Add & Edit Student Form Modal */}
       <Modal visible={showStudentFormModal} transparent animationType="slide" onRequestClose={() => setShowStudentFormModal(false)}>
         <View style={styles.modalOverlay}>
-          <ThemedView style={[styles.modalContent, { maxHeight: '88%' }]}>
+          <ThemedView style={[styles.modalContent, { maxHeight: '90%', paddingHorizontal: 16 }]}>
             <View style={styles.modalHeader}>
               <ThemedText style={styles.modalTitle}>
                 {isEditingStudent ? 'Edit Student Record' : 'Add New Student'}
@@ -587,115 +656,348 @@ export default function StudentsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-              {/* First Name */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.formLabel}>First Name *</ThemedText>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. John"
-                  placeholderTextColor="#64748b"
-                  value={studentForm.firstName}
-                  onChangeText={(val) => setStudentForm((p) => ({ ...p, firstName: val }))}
-                />
-              </View>
+            {/* 4 Form Section Tabs Bar */}
+            <View style={styles.formTabBar}>
+              <TouchableOpacity
+                style={[styles.formTabItem, activeFormTab === 'basic' && styles.formTabItemActive]}
+                onPress={() => setActiveFormTab('basic')}
+              >
+                <User size={14} color={activeFormTab === 'basic' ? '#38bdf8' : '#64748b'} />
+                <ThemedText style={[styles.formTabText, activeFormTab === 'basic' && styles.formTabTextActive]}>Basic</ThemedText>
+              </TouchableOpacity>
 
-              {/* Last Name */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.formLabel}>Last Name *</ThemedText>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. Doe"
-                  placeholderTextColor="#64748b"
-                  value={studentForm.lastName}
-                  onChangeText={(val) => setStudentForm((p) => ({ ...p, lastName: val }))}
-                />
-              </View>
+              <TouchableOpacity
+                style={[styles.formTabItem, activeFormTab === 'guardian' && styles.formTabItemActive]}
+                onPress={() => setActiveFormTab('guardian')}
+              >
+                <Users size={14} color={activeFormTab === 'guardian' ? '#38bdf8' : '#64748b'} />
+                <ThemedText style={[styles.formTabText, activeFormTab === 'guardian' && styles.formTabTextActive]}>Guardian</ThemedText>
+              </TouchableOpacity>
 
-              {/* Middle Name */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.formLabel}>Middle Name</ThemedText>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. Adam"
-                  placeholderTextColor="#64748b"
-                  value={studentForm.middleName}
-                  onChangeText={(val) => setStudentForm((p) => ({ ...p, middleName: val }))}
-                />
-              </View>
+              <TouchableOpacity
+                style={[styles.formTabItem, activeFormTab === 'health' && styles.formTabItemActive]}
+                onPress={() => setActiveFormTab('health')}
+              >
+                <HeartPulse size={14} color={activeFormTab === 'health' ? '#38bdf8' : '#64748b'} />
+                <ThemedText style={[styles.formTabText, activeFormTab === 'health' && styles.formTabTextActive]}>Health</ThemedText>
+              </TouchableOpacity>
 
-              {/* Admission Number */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.formLabel}>Admission Number</ThemedText>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. ADM001"
-                  placeholderTextColor="#64748b"
-                  value={studentForm.admissionNumber}
-                  onChangeText={(val) => setStudentForm((p) => ({ ...p, admissionNumber: val }))}
-                />
-              </View>
+              {!isEditingStudent && (
+                <TouchableOpacity
+                  style={[styles.formTabItem, activeFormTab === 'account' && styles.formTabItemActive]}
+                  onPress={() => setActiveFormTab('account')}
+                >
+                  <ShieldCheck size={14} color={activeFormTab === 'account' ? '#38bdf8' : '#64748b'} />
+                  <ThemedText style={[styles.formTabText, activeFormTab === 'account' && styles.formTabTextActive]}>Portal</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
 
-              {/* Parent Phone */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.formLabel}>Parent Phone Number *</ThemedText>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. 08012345678"
-                  placeholderTextColor="#64748b"
-                  keyboardType="phone-pad"
-                  value={studentForm.parentPhone}
-                  onChangeText={(val) => setStudentForm((p) => ({ ...p, parentPhone: val }))}
-                />
-              </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 12 }}>
+              {/* TAB 1: BASIC INFO */}
+              {activeFormTab === 'basic' && (
+                <View>
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>First Name *</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. John"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.firstName}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, firstName: val }))}
+                    />
+                  </View>
 
-              {/* Gender Selector */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.formLabel}>Gender</ThemedText>
-                <View style={styles.genderRow}>
-                  <TouchableOpacity
-                    style={[styles.genderBtn, studentForm.gender === 'male' && styles.genderBtnActive]}
-                    onPress={() => setStudentForm((p) => ({ ...p, gender: 'male' }))}
-                  >
-                    <ThemedText style={[styles.genderBtnText, studentForm.gender === 'male' && styles.genderBtnTextActive]}>
-                      Male
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.genderBtn, studentForm.gender === 'female' && styles.genderBtnActive]}
-                    onPress={() => setStudentForm((p) => ({ ...p, gender: 'female' }))}
-                  >
-                    <ThemedText style={[styles.genderBtnText, studentForm.gender === 'female' && styles.genderBtnTextActive]}>
-                      Female
-                    </ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Last Name *</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. Doe"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.lastName}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, lastName: val }))}
+                    />
+                  </View>
 
-              {/* Class Arm Selector */}
-              <View style={styles.formGroup}>
-                <ThemedText style={styles.formLabel}>Assigned Class Arm *</ThemedText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                  {classesList.map((c: any) => {
-                    const cId = c._id || c.id;
-                    const isSelected = studentForm.classId === cId;
-                    const label = `${c.grade || ''} ${c.name || ''}`.trim();
-                    return (
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Middle Name</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. Adam"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.middleName}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, middleName: val }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Admission Number *</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. ADM001"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.admissionNumber}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, admissionNumber: val }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Parent Phone Number *</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. 08012345678"
+                      placeholderTextColor="#64748b"
+                      keyboardType="phone-pad"
+                      value={studentForm.parentPhone}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, parentPhone: val }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Gender *</ThemedText>
+                    <View style={styles.genderRow}>
                       <TouchableOpacity
-                        key={cId}
-                        style={[styles.classPill, isSelected && styles.classPillActive]}
-                        onPress={() => setStudentForm((p) => ({ ...p, classId: cId }))}
+                        style={[styles.genderBtn, studentForm.gender === 'male' && styles.genderBtnActive]}
+                        onPress={() => setStudentForm((p) => ({ ...p, gender: 'male' }))}
                       >
-                        <ThemedText style={[styles.classPillText, isSelected && styles.classPillTextActive]}>
-                          {label}
+                        <ThemedText style={[styles.genderBtnText, studentForm.gender === 'male' && styles.genderBtnTextActive]}>
+                          Male
                         </ThemedText>
                       </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+                      <TouchableOpacity
+                        style={[styles.genderBtn, studentForm.gender === 'female' && styles.genderBtnActive]}
+                        onPress={() => setStudentForm((p) => ({ ...p, gender: 'female' }))}
+                      >
+                        <ThemedText style={[styles.genderBtnText, studentForm.gender === 'female' && styles.genderBtnTextActive]}>
+                          Female
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
 
-              {/* Save Button */}
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Assigned Class Arm *</ThemedText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                      {classesList.map((c: any) => {
+                        const cId = c._id || c.id;
+                        const isSelected = studentForm.classId === cId;
+                        const label = `${c.grade || ''} ${c.name || ''}`.trim();
+                        return (
+                          <TouchableOpacity
+                            key={cId}
+                            style={[styles.classPill, isSelected && styles.classPillActive]}
+                            onPress={() => setStudentForm((p) => ({ ...p, classId: cId }))}
+                          >
+                            <ThemedText style={[styles.classPillText, isSelected && styles.classPillTextActive]}>
+                              {label}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Date of Birth (YYYY-MM-DD)</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. 2012-05-15"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.dateOfBirth}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, dateOfBirth: val }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>State of Origin</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. Lagos"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.stateOfOrigin}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, stateOfOrigin: val }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>LGA</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. Ikeja"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.lga}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, lga: val }))}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* TAB 2: GUARDIAN DETAILS */}
+              {activeFormTab === 'guardian' && (
+                <View>
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Guardian Name</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. Mr. Robert Doe"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.guardian.name}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, guardian: { ...p.guardian, name: val } }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Relationship</ThemedText>
+                    <View style={styles.genderRow}>
+                      {['Father', 'Mother', 'Guardian'].map((rel) => {
+                        const isSelected = studentForm.guardian.relationship === rel;
+                        return (
+                          <TouchableOpacity
+                            key={rel}
+                            style={[styles.genderBtn, isSelected && styles.genderBtnActive]}
+                            onPress={() => setStudentForm((p) => ({ ...p, guardian: { ...p.guardian, relationship: rel } }))}
+                          >
+                            <ThemedText style={[styles.genderBtnText, isSelected && styles.genderBtnTextActive]}>
+                              {rel}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Guardian Phone</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. 08012345678"
+                      placeholderTextColor="#64748b"
+                      keyboardType="phone-pad"
+                      value={studentForm.guardian.phone}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, guardian: { ...p.guardian, phone: val } }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Guardian Email</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. guardian@gmail.com"
+                      placeholderTextColor="#64748b"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={studentForm.guardian.email}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, guardian: { ...p.guardian, email: val } }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Guardian Occupation</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. Engineer"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.guardian.occupation}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, guardian: { ...p.guardian, occupation: val } }))}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* TAB 3: HEALTH DETAILS */}
+              {activeFormTab === 'health' && (
+                <View>
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Blood Group</ThemedText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                      {['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'].map((bg) => {
+                        const isSelected = studentForm.healthInfo.bloodGroup === bg;
+                        return (
+                          <TouchableOpacity
+                            key={bg}
+                            style={[styles.classPill, isSelected && styles.classPillActive]}
+                            onPress={() => setStudentForm((p) => ({ ...p, healthInfo: { ...p.healthInfo, bloodGroup: bg } }))}
+                          >
+                            <ThemedText style={[styles.classPillText, isSelected && styles.classPillTextActive]}>{bg}</ThemedText>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Genotype</ThemedText>
+                    <View style={styles.genderRow}>
+                      {['AA', 'AS', 'SS', 'AC'].map((gt) => {
+                        const isSelected = studentForm.healthInfo.genotype === gt;
+                        return (
+                          <TouchableOpacity
+                            key={gt}
+                            style={[styles.genderBtn, isSelected && styles.genderBtnActive]}
+                            onPress={() => setStudentForm((p) => ({ ...p, healthInfo: { ...p.healthInfo, genotype: gt } }))}
+                          >
+                            <ThemedText style={[styles.genderBtnText, isSelected && styles.genderBtnTextActive]}>{gt}</ThemedText>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Known Allergies</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. Peanuts, Dust"
+                      placeholderTextColor="#64748b"
+                      value={studentForm.healthInfo.allergies}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, healthInfo: { ...p.healthInfo, allergies: val } }))}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <ThemedText style={styles.formLabel}>Emergency Contact Phone</ThemedText>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="e.g. 08099887766"
+                      placeholderTextColor="#64748b"
+                      keyboardType="phone-pad"
+                      value={studentForm.healthInfo.emergencyContactPhone}
+                      onChangeText={(val) => setStudentForm((p) => ({ ...p, healthInfo: { ...p.healthInfo, emergencyContactPhone: val } }))}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* TAB 4: PORTAL ACCOUNT SETUP */}
+              {activeFormTab === 'account' && (
+                <View style={{ gap: 14 }}>
+                  <View style={styles.switchRow}>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.switchTitle}>Create Student Portal Account</ThemedText>
+                      <ThemedText style={styles.switchSub}>Generate login credentials for student</ThemedText>
+                    </View>
+                    <Switch
+                      value={studentForm.createStudentAccount}
+                      onValueChange={(val) => setStudentForm((p) => ({ ...p, createStudentAccount: val }))}
+                      trackColor={{ false: '#334155', true: '#0284c7' }}
+                    />
+                  </View>
+
+                  <View style={styles.switchRow}>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.switchTitle}>Create Parent Portal Account</ThemedText>
+                      <ThemedText style={styles.switchSub}>Generate login credentials for parent</ThemedText>
+                    </View>
+                    <Switch
+                      value={studentForm.createParentAccount}
+                      onValueChange={(val) => setStudentForm((p) => ({ ...p, createParentAccount: val }))}
+                      trackColor={{ false: '#334155', true: '#0284c7' }}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Submit Save Button */}
               <TouchableOpacity
                 style={[
                   styles.saveFormBtn,
@@ -1031,12 +1333,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
   },
   modalContent: {
     backgroundColor: '#1e293b',
     borderRadius: 22,
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
     borderColor: '#334155',
   },
@@ -1044,12 +1346,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#f8fafc',
+  },
+  formTabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 12,
+  },
+  formTabItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  formTabItemActive: {
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+  },
+  formTabText: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  formTabTextActive: {
+    color: '#38bdf8',
+    fontWeight: 'bold',
   },
   studentPreviewCard: {
     backgroundColor: '#0f172a',
@@ -1142,12 +1474,12 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     color: '#f8fafc',
     paddingHorizontal: 12,
-    height: 44,
+    height: 42,
     fontSize: 14,
   },
   genderRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   genderBtn: {
     flex: 1,
@@ -1155,7 +1487,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#334155',
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
   },
   genderBtnActive: {
@@ -1163,7 +1495,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
   },
   genderBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94a3b8',
   },
   genderBtnTextActive: {
@@ -1172,7 +1504,7 @@ const styles = StyleSheet.create({
   },
   classPill: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 10,
     backgroundColor: '#0f172a',
     borderWidth: 1,
@@ -1190,9 +1522,29 @@ const styles = StyleSheet.create({
     color: '#38bdf8',
     fontWeight: 'bold',
   },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0f172a',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  switchTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  switchSub: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
   saveFormBtn: {
     backgroundColor: '#0284c7',
-    paddingVertical: 14,
+    paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 14,
