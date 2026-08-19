@@ -1,40 +1,38 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Modal,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
-  Search,
-  Users,
-  UserPlus,
-  RefreshCw,
+  ChevronRight,
+  Info,
   MoreVertical,
   Pencil,
-  UserCheck,
-  UserX,
-  X,
+  RefreshCw,
+  Search,
   ShieldCheck,
-  ChevronRight,
-  Mail,
-  Phone,
-  Info,
+  UserCheck,
+  UserPlus,
+  Users,
+  UserX,
+  X
 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Badge } from '@/components/ui/badge';
-import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
+import { apiClient } from '@/lib/api-client';
 
 export default function TeachersScreen() {
   const router = useRouter();
@@ -190,8 +188,8 @@ export default function TeachersScreen() {
           <ArrowLeft size={20} color="#f8fafc" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <ThemedText style={styles.title}>Teachers & Staff</ThemedText>
-          <ThemedText style={styles.sub}>Faculty directory & role permissions</ThemedText>
+          <ThemedText style={styles.title}>Staff</ThemedText>
+          <ThemedText style={styles.sub}>Faculty directory</ThemedText>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {isAdminOrAccountant && (
@@ -400,62 +398,64 @@ export default function TeachersScreen() {
             </View>
 
             {activeTeacher && (
-              <View style={styles.previewCard}>
-                <ThemedText style={styles.previewName}>
-                  {activeTeacher.fullName || `${activeTeacher.firstName || ''} ${activeTeacher.lastName || ''}`.trim()}
-                </ThemedText>
-                <ThemedText style={styles.previewSub}>
-                  Role: {(activeTeacher.role || 'teacher').toUpperCase()} • Email: {activeTeacher.email || 'N/A'}
-                </ThemedText>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.modalActionItem}
-              onPress={() => handleOpenEdit(activeTeacher)}
-            >
-              <Pencil size={20} color="#38bdf8" style={{ marginRight: 12 }} />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.actionItemTitle}>Edit Staff Details</ThemedText>
-                <ThemedText style={styles.actionItemSub}>Modify name, email, phone & role</ThemedText>
-              </View>
-              <ChevronRight size={18} color="#64748b" />
-            </TouchableOpacity>
-
-            <View style={styles.modalDivider} />
-
-            {activeTeacher?.isActive === false ? (
-              <TouchableOpacity
-                style={styles.modalActionItem}
-                onPress={() =>
-                  toggleStatusMutation.mutate({
-                    id: activeTeacher._id || activeTeacher.id,
-                    isActive: true,
-                  })
-                }
-              >
-                <UserCheck size={20} color="#4ade80" style={{ marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <ThemedText style={[styles.actionItemTitle, { color: '#4ade80' }]}>Activate Account</ThemedText>
-                  <ThemedText style={styles.actionItemSub}>Restore staff access to the platform</ThemedText>
+              <>
+                <View style={styles.previewCard}>
+                  <ThemedText style={styles.previewName}>
+                    {activeTeacher.fullName || `${activeTeacher.firstName || ''} ${activeTeacher.lastName || ''}`.trim()}
+                  </ThemedText>
+                  <ThemedText style={styles.previewSub}>
+                    Role: {(activeTeacher.role || 'teacher').toUpperCase()} • Email: {activeTeacher.email || 'N/A'}
+                  </ThemedText>
                 </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.modalActionItem}
-                onPress={() =>
-                  toggleStatusMutation.mutate({
-                    id: activeTeacher._id || activeTeacher.id,
-                    isActive: false,
-                  })
-                }
-              >
-                <UserX size={20} color="#fbbf24" style={{ marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <ThemedText style={[styles.actionItemTitle, { color: '#fbbf24' }]}>Deactivate Account</ThemedText>
-                  <ThemedText style={styles.actionItemSub}>Suspend staff login credentials</ThemedText>
-                </View>
-              </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalActionItem}
+                  onPress={() => handleOpenEdit(activeTeacher)}
+                >
+                  <Pencil size={20} color="#38bdf8" style={{ marginRight: 12 }} />
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={styles.actionItemTitle}>Edit Staff Details</ThemedText>
+                    <ThemedText style={styles.actionItemSub}>Modify name, email, phone & role</ThemedText>
+                  </View>
+                  <ChevronRight size={18} color="#64748b" />
+                </TouchableOpacity>
+
+                <View style={styles.modalDivider} />
+
+                {activeTeacher.isActive === false ? (
+                  <TouchableOpacity
+                    style={styles.modalActionItem}
+                    onPress={() => {
+                      const id = activeTeacher._id || activeTeacher.id;
+                      if (id) {
+                        toggleStatusMutation.mutate({ id, isActive: true });
+                      }
+                    }}
+                  >
+                    <UserCheck size={20} color="#4ade80" style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={[styles.actionItemTitle, { color: '#4ade80' }]}>Activate Account</ThemedText>
+                      <ThemedText style={styles.actionItemSub}>Restore staff access to the platform</ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.modalActionItem}
+                    onPress={() => {
+                      const id = activeTeacher._id || activeTeacher.id;
+                      if (id) {
+                        toggleStatusMutation.mutate({ id, isActive: false });
+                      }
+                    }}
+                  >
+                    <UserX size={20} color="#fbbf24" style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={[styles.actionItemTitle, { color: '#fbbf24' }]}>Deactivate Account</ThemedText>
+                      <ThemedText style={styles.actionItemSub}>Suspend staff login credentials</ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
           </ThemedView>
         </View>

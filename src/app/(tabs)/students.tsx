@@ -582,73 +582,81 @@ export default function StudentsScreen() {
             </View>
 
             {activeStudent && (
-              <View style={styles.studentPreviewCard}>
-                <ThemedText style={styles.previewName}>
-                  {activeStudent.firstName} {activeStudent.lastName}
-                </ThemedText>
-                <ThemedText style={styles.previewSub}>
-                  Admission: {activeStudent.admissionNumber || activeStudent.admissionNo || 'N/A'}
-                </ThemedText>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.modalActionItem}
-              onPress={() => handleOpenEditStudent(activeStudent)}
-            >
-              <Pencil size={20} color="#38bdf8" style={{ marginRight: 12 }} />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.actionItemTitle}>Edit Student Details</ThemedText>
-                <ThemedText style={styles.actionItemSub}>Modify basic info, guardian, medical & accounts</ThemedText>
-              </View>
-              <ChevronRight size={18} color="#64748b" />
-            </TouchableOpacity>
-
-            <View style={styles.modalDivider} />
-
-            <TouchableOpacity
-              style={styles.modalActionItem}
-              onPress={() => {
-                setShowActionModal(false);
-                setShowPromoteModal(true);
-              }}
-            >
-              <GraduationCap size={20} color="#4ade80" style={{ marginRight: 12 }} />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.actionItemTitle}>Promote Student</ThemedText>
-                <ThemedText style={styles.actionItemSub}>Advance student to next academic class</ThemedText>
-              </View>
-              <ChevronRight size={18} color="#64748b" />
-            </TouchableOpacity>
-
-            <View style={styles.modalDivider} />
-
-            {activeStudent?.status === 'inactive' ? (
-              <TouchableOpacity
-                style={styles.modalActionItem}
-                onPress={() =>
-                  updateStatusMutation.mutate({ id: activeStudent._id || activeStudent.id, newStatus: 'active' })
-                }
-              >
-                <UserCheck size={20} color="#4ade80" style={{ marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <ThemedText style={[styles.actionItemTitle, { color: '#4ade80' }]}>Activate Student</ThemedText>
-                  <ThemedText style={styles.actionItemSub}>Restore student account to active roster</ThemedText>
+              <>
+                <View style={styles.studentPreviewCard}>
+                  <ThemedText style={styles.previewName}>
+                    {activeStudent.firstName} {activeStudent.lastName}
+                  </ThemedText>
+                  <ThemedText style={styles.previewSub}>
+                    Admission: {activeStudent.admissionNumber || activeStudent.admissionNo || 'N/A'}
+                  </ThemedText>
                 </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.modalActionItem}
-                onPress={() =>
-                  updateStatusMutation.mutate({ id: activeStudent._id || activeStudent.id, newStatus: 'inactive' })
-                }
-              >
-                <UserX size={20} color="#fbbf24" style={{ marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <ThemedText style={[styles.actionItemTitle, { color: '#fbbf24' }]}>Deactivate Student</ThemedText>
-                  <ThemedText style={styles.actionItemSub}>Set status to inactive</ThemedText>
-                </View>
-              </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalActionItem}
+                  onPress={() => handleOpenEditStudent(activeStudent)}
+                >
+                  <Pencil size={20} color="#38bdf8" style={{ marginRight: 12 }} />
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={styles.actionItemTitle}>Edit Student Details</ThemedText>
+                    <ThemedText style={styles.actionItemSub}>Modify basic info, guardian, medical & accounts</ThemedText>
+                  </View>
+                  <ChevronRight size={18} color="#64748b" />
+                </TouchableOpacity>
+
+                <View style={styles.modalDivider} />
+
+                <TouchableOpacity
+                  style={styles.modalActionItem}
+                  onPress={() => {
+                    setShowActionModal(false);
+                    setShowPromoteModal(true);
+                  }}
+                >
+                  <GraduationCap size={20} color="#4ade80" style={{ marginRight: 12 }} />
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={styles.actionItemTitle}>Promote Student</ThemedText>
+                    <ThemedText style={styles.actionItemSub}>Advance student to next academic class</ThemedText>
+                  </View>
+                  <ChevronRight size={18} color="#64748b" />
+                </TouchableOpacity>
+
+                <View style={styles.modalDivider} />
+
+                {activeStudent.status === 'inactive' ? (
+                  <TouchableOpacity
+                    style={styles.modalActionItem}
+                    onPress={() => {
+                      const id = activeStudent._id || activeStudent.id;
+                      if (id) {
+                        updateStatusMutation.mutate({ id, newStatus: 'active' });
+                      }
+                    }}
+                  >
+                    <UserCheck size={20} color="#4ade80" style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={[styles.actionItemTitle, { color: '#4ade80' }]}>Activate Student</ThemedText>
+                      <ThemedText style={styles.actionItemSub}>Restore student account to active roster</ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.modalActionItem}
+                    onPress={() => {
+                      const id = activeStudent._id || activeStudent.id;
+                      if (id) {
+                        updateStatusMutation.mutate({ id, newStatus: 'inactive' });
+                      }
+                    }}
+                  >
+                    <UserX size={20} color="#fbbf24" style={{ marginRight: 12 }} />
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={[styles.actionItemTitle, { color: '#fbbf24' }]}>Deactivate Student</ThemedText>
+                      <ThemedText style={styles.actionItemSub}>Set status to inactive</ThemedText>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
           </ThemedView>
         </View>
