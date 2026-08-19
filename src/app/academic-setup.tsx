@@ -64,6 +64,8 @@ export default function AcademicSetupScreen() {
     capacity: '40',
   });
 
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+
   // 1. Fetch Sessions
   const { data: sessionsList = [], isLoading: isLoadingSessions, refetch: refetchSessions } = useQuery({
     queryKey: ['admin-sessions'],
@@ -80,12 +82,20 @@ export default function AcademicSetupScreen() {
     },
   });
 
-  // 2. Fetch Terms
+  // Active current session object
+  const activeSessionObj = sessionsList.find((s: any) => (s._id || s.id) === selectedSessionId) ||
+    sessionsList.find((s: any) => s.isCurrent) ||
+    sessionsList[0];
+
+  const currentSessionId = activeSessionObj ? (activeSessionObj._id || activeSessionObj.id) : '';
+
+  // 2. Fetch Terms strictly for current session
   const { data: termsList = [], isLoading: isLoadingTerms, refetch: refetchTerms } = useQuery({
-    queryKey: ['admin-terms'],
+    queryKey: ['admin-terms', currentSessionId],
+    enabled: Boolean(currentSessionId),
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/admin/terms');
+        const res = await apiClient.get('/admin/terms', { params: { sessionId: currentSessionId } });
         const raw = res.data;
         if (Array.isArray(raw)) return raw;
         if (Array.isArray(raw?.data)) return raw.data;
@@ -140,7 +150,7 @@ export default function AcademicSetupScreen() {
         name: termForm.name.trim(),
         startDate: termForm.startDate,
         endDate: termForm.endDate,
-        sessionId: termForm.sessionId || sessionsList[0]?._id,
+        sessionId: termForm.sessionId || currentSessionId,
       });
     },
     onSuccess: () => {
