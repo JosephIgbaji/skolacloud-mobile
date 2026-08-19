@@ -1,8 +1,32 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Modal,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Users, Search, GraduationCap, Building2, UserPlus, RefreshCw } from 'lucide-react-native';
-import { useQuery } from '@tanstack/react-query';
+import {
+  Users,
+  Search,
+  GraduationCap,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  MoreVertical,
+  Filter,
+  Check,
+  UserCheck,
+  UserX,
+  ArrowUpRight,
+  X,
+} from 'lucide-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -11,63 +35,134 @@ import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function StudentsScreen() {
-  const [search, setSearch] = useState('');
   const { user } = useAuth();
   const rawRole = (user?.role || 'student').toLowerCase();
+  const isAdminOrAccountant = rawRole === 'admin' || rawRole === 'super_admin' || rawRole === 'superadmin' || rawRole === 'accountant';
+  const queryClient = useQueryClient();
 
-  // Fetch real students from backend API with limit=500 for full school directory
-  const { data: responseData, isLoading, isError, refetch } = useQuery({
-    queryKey: ['students-list', rawRole, user?._id || user?.id],
+  // Filter & Pagination States
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, active, inactive, graduated
+  const [genderFilter, setGenderFilter] = useState('all'); // all, male, female
+  const [selectedClassId, setSelectedClassId] = useState('');
+
+  // Action Modal State
+  const [activeStudent, setActiveStudent] = useState<any | null>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [targetPromoteClassId, setTargetPromoteClassId] = useState('');
+
+  // 1. Fetch Classes List for Filter & Promotion
+  const { data: classesList = [] } = useQuery({
+    queryKey: ['school-classes'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/classes');
+        const raw = res.data;
+        if (Array.isArray(raw)) return raw;
+        if (Array.isArray(raw?.data)) return raw.data;
+        return [];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  // 2. Fetch Paginated & Filtered Students from Backend API
+  const { data: studentsResponse, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['students-table', rawRole, page, limit, search, statusFilter, genderFilter, selectedClassId],
     staleTime: 0,
-    refetchOnMount: 'always',
     queryFn: async () => {
       let endpoint = '/admin/students';
       if (rawRole === 'teacher') endpoint = '/teacher/students';
       if (rawRole === 'parent') endpoint = '/parent/students';
       if (rawRole === 'student') endpoint = '/student/profile';
 
-      const res = await apiClient.get(endpoint, { params: { limit: 500 } });
+      const params: any = {
+        page,
+        limit,
+      };
+      if (search.trim()) params.search = search.trim();
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (genderFilter !== 'all') params.gender = genderFilter;
+      if (selectedClassId) params.classId = selectedClassId;
+
+      const res = await apiClient.get(endpoint, { params });
       const rawData = res.data;
 
       let list: any[] = [];
-      let totalCount = 0;
+      let total = 0;
+      let totalPages = 1;
 
       if (Array.isArray(rawData)) {
         list = rawData;
-        totalCount = rawData.length;
-      } else if (Array.isArray(rawData?.data)) {
-        list = rawData.data;
-        totalCount = rawData.total || rawData.data.length;
-      } else if (Array.isArray(rawData?.students)) {
-        list = rawData.students;
-        totalCount = rawData.total || rawData.students.length;
+        total = rawData.length;
+        totalPages = 1;
+      } else if (rawData && typeof rawData === 'object') {
+        list = Array.isArray(rawData.data) ? rawData.data : Array.isArray(rawData.students) ? rawData.students : [];
+        total = rawData.total ?? list.length;
+        totalPages = rawData.pages ?? rawData.totalPages ?? Math.max(1, Math.ceil(total / limit));
       }
 
-      return { list, totalCount };
+      return { list, total, totalPages };
     },
   });
 
-  const studentsList: any[] = responseData?.list || [];
-  const totalEnrolled: number = responseData?.totalCount || studentsList.length;
+  const students = studentsResponse?.list || [];
+  const totalStudents = studentsResponse?.total || 0;
+  const totalPages = studentsResponse?.totalPages || 1;
 
-  const filteredStudents = studentsList.filter((s) => {
-    const fullName = `${s.firstName || ''} ${s.lastName || ''} ${s.fullName || s.name || ''}`.trim().toLowerCase();
-    const adm = (s.admissionNo || s.admissionNumber || '').toLowerCase();
-    const cls = (s.className || s.class?.name || s.classId?.name || '').toLowerCase();
-    const query = search.toLowerCase();
-    return fullName.includes(query) || adm.includes(query) || cls.includes(query);
+  // Mutation: Update Student Status (Active / Inactive)
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, newStatus }: { id: string; newStatus: string }) => {
+      return await apiClient.patch(`/admin/students/${id}/status`, { status: newStatus });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students-table'] });
+      setShowActionModal(false);
+      setActiveStudent(null);
+      Alert.alert('Success', 'Student status updated successfully.');
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to update student status.');
+    },
   });
+
+  // Mutation: Promote Student to New Class
+  const promoteStudentMutation = useMutation({
+    mutationFn: async ({ id, newClassId }: { id: string; newClassId: string }) => {
+      return await apiClient.post(`/admin/students/${id}/promote`, { newClassId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students-table'] });
+      setShowPromoteModal(false);
+      setShowActionModal(false);
+      setActiveStudent(null);
+      Alert.alert('Success', 'Student promoted successfully.');
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to promote student.');
+    },
+  });
+
+  const handleOpenAction = (student: any) => {
+    setActiveStudent(student);
+    setShowActionModal(true);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header */}
         <View style={styles.headerRow}>
           <View>
-            <ThemedText style={styles.title}>Student Directory</ThemedText>
-            <ThemedText style={styles.subtitle}>Enrolled students & academic classes</ThemedText>
+            <ThemedText style={styles.title}>Student Roster</ThemedText>
+            <ThemedText style={styles.subtitle}>Academic directory & class management</ThemedText>
           </View>
           <TouchableOpacity style={styles.iconButton} onPress={() => refetch()}>
-            <RefreshCw size={18} color="#38bdf8" />
+            {isFetching ? <ActivityIndicator size="small" color="#38bdf8" /> : <RefreshCw size={18} color="#38bdf8" />}
           </TouchableOpacity>
         </View>
 
@@ -76,87 +171,343 @@ export default function StudentsScreen() {
           <Search size={18} color="#94a3b8" style={{ marginRight: 10 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search student name, ID or class..."
+            placeholder="Search name, admission no..."
             placeholderTextColor="#94a3b8"
             value={search}
-            onChangeText={setSearch}
+            onChangeText={(txt) => {
+              setSearch(txt);
+              setPage(1);
+            }}
           />
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <X size={16} color="#94a3b8" />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-        {/* Stats Row */}
+        {/* Filter Pills Bar */}
+        <View style={styles.filterSection}>
+          {/* Status Tabs */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
+            <TouchableOpacity
+              style={[styles.filterPill, statusFilter === 'all' && styles.filterPillActive]}
+              onPress={() => { setStatusFilter('all'); setPage(1); }}
+            >
+              <ThemedText style={[styles.filterPillText, statusFilter === 'all' && styles.filterPillTextActive]}>
+                All Status
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterPill, statusFilter === 'active' && styles.filterPillActive]}
+              onPress={() => { setStatusFilter('active'); setPage(1); }}
+            >
+              <ThemedText style={[styles.filterPillText, statusFilter === 'active' && styles.filterPillTextActive]}>
+                Active
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterPill, statusFilter === 'inactive' && styles.filterPillActive]}
+              onPress={() => { setStatusFilter('inactive'); setPage(1); }}
+            >
+              <ThemedText style={[styles.filterPillText, statusFilter === 'inactive' && styles.filterPillTextActive]}>
+                Inactive
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterPill, statusFilter === 'graduated' && styles.filterPillActive]}
+              onPress={() => { setStatusFilter('graduated'); setPage(1); }}
+            >
+              <ThemedText style={[styles.filterPillText, statusFilter === 'graduated' && styles.filterPillTextActive]}>
+                Graduated
+              </ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+
+          {/* Gender Filter Pills */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
+            <TouchableOpacity
+              style={[styles.filterPillSm, genderFilter === 'all' && styles.filterPillActive]}
+              onPress={() => { setGenderFilter('all'); setPage(1); }}
+            >
+              <ThemedText style={[styles.filterPillText, genderFilter === 'all' && styles.filterPillTextActive]}>
+                All Genders
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterPillSm, genderFilter === 'male' && styles.filterPillActive]}
+              onPress={() => { setGenderFilter('male'); setPage(1); }}
+            >
+              <ThemedText style={[styles.filterPillText, genderFilter === 'male' && styles.filterPillTextActive]}>
+                Male
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterPillSm, genderFilter === 'female' && styles.filterPillActive]}
+              onPress={() => { setGenderFilter('female'); setPage(1); }}
+            >
+              <ThemedText style={[styles.filterPillText, genderFilter === 'female' && styles.filterPillTextActive]}>
+                Female
+              </ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
+        {/* Stats Summary Bar */}
         <View style={styles.statsRow}>
           <ThemedView style={styles.statCard}>
-            <GraduationCap size={20} color="#38bdf8" style={{ marginBottom: 6 }} />
-            <ThemedText style={styles.statNumber}>{totalEnrolled}</ThemedText>
-            <ThemedText style={styles.statLabel}>Enrolled Students</ThemedText>
+            <GraduationCap size={18} color="#38bdf8" style={{ marginBottom: 4 }} />
+            <ThemedText style={styles.statNumber}>{totalStudents}</ThemedText>
+            <ThemedText style={styles.statLabel}>Total Matching</ThemedText>
           </ThemedView>
           <ThemedView style={styles.statCard}>
-            <Building2 size={20} color="#4ade80" style={{ marginBottom: 6 }} />
-            <ThemedText style={[styles.statNumber, { color: '#4ade80' }]}>
-              {Math.max(1, Math.ceil(totalEnrolled / 30))}
-            </ThemedText>
-            <ThemedText style={styles.statLabel}>Active Classes</ThemedText>
+            <Building2 size={18} color="#4ade80" style={{ marginBottom: 4 }} />
+            <ThemedText style={[styles.statNumber, { color: '#4ade80' }]}>{classesList.length}</ThemedText>
+            <ThemedText style={styles.statLabel}>Classes</ThemedText>
           </ThemedView>
         </View>
 
-        {/* Student Roster Section */}
-        <ThemedText style={styles.sectionTitle}>
-          Student Roster ({filteredStudents.length} of {totalEnrolled})
-        </ThemedText>
-
-        {isLoading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color="#0284c7" />
-            <ThemedText style={styles.loadingText}>Fetching student records...</ThemedText>
+        {/* Data Table Container */}
+        <ThemedView style={styles.tableCard}>
+          <View style={styles.tableHeader}>
+            <ThemedText style={[styles.thCell, { flex: 2 }]}>STUDENT & ADM</ThemedText>
+            <ThemedText style={[styles.thCell, { flex: 1.5 }]}>CLASS</ThemedText>
+            <ThemedText style={[styles.thCell, { flex: 1, textAlign: 'center' }]}>STATUS</ThemedText>
+            {isAdminOrAccountant && <ThemedText style={[styles.thCell, { width: 44, textAlign: 'right' }]}>ACTION</ThemedText>}
           </View>
-        ) : isError ? (
-          <ThemedView style={styles.emptyCard}>
-            <ThemedText style={styles.emptyTitle}>Unable to load students</ThemedText>
-            <ThemedText style={styles.emptySub}>Please check backend connection and retry.</ThemedText>
-            <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
-              <ThemedText style={styles.retryBtnText}>Retry Connection</ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
-        ) : filteredStudents.length === 0 ? (
-          <ThemedView style={styles.emptyCard}>
-            <Users size={32} color="#64748b" style={{ marginBottom: 8 }} />
-            <ThemedText style={styles.emptyTitle}>No students found</ThemedText>
-            <ThemedText style={styles.emptySub}>
-              {search ? 'No student records match your search criteria.' : 'No student records registered in the database yet.'}
-            </ThemedText>
-          </ThemedView>
-        ) : (
-          <ThemedView style={styles.listCard}>
-            {filteredStudents.map((item, idx) => {
+
+          {isLoading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color="#0284c7" />
+              <ThemedText style={styles.loadingText}>Loading students table...</ThemedText>
+            </View>
+          ) : isError ? (
+            <View style={styles.centerContainer}>
+              <ThemedText style={styles.errorText}>Failed to load student table records.</ThemedText>
+              <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
+                <ThemedText style={styles.retryBtnText}>Retry</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : students.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Users size={32} color="#64748b" style={{ marginBottom: 8 }} />
+              <ThemedText style={styles.emptyTitle}>No Students Found</ThemedText>
+              <ThemedText style={styles.emptySub}>No student records match the active filter criteria.</ThemedText>
+            </View>
+          ) : (
+            students.map((item, idx) => {
               const displayName = `${item.firstName || ''} ${item.lastName || ''}`.trim() || item.fullName || item.name || 'Student';
               const admNo = item.admissionNo || item.admissionNumber || `ID-${item._id?.substring(0, 6)}`;
+
               const classObj = item.classId || item.class;
               const className = item.className || (typeof classObj === 'object' && classObj ? (classObj.name ? `${classObj.grade ? classObj.grade + ' ' : ''}${classObj.name}` : classObj.grade || 'Unassigned') : 'Unassigned');
-              const status = item.status ? item.status.toUpperCase() : item.isActive !== false ? 'ACTIVE' : 'INACTIVE';
+
+              const statusRaw = (item.status || (item.isActive !== false ? 'active' : 'inactive')).toLowerCase();
 
               return (
                 <View key={item._id || item.id || idx}>
-                  {idx > 0 && <View style={styles.itemDivider} />}
-                  <TouchableOpacity style={styles.studentItem}>
-                    <View style={styles.avatarCircle}>
-                      <ThemedText style={styles.avatarInitial}>
-                        {displayName.charAt(0).toUpperCase()}
+                  {idx > 0 && <View style={styles.tableRowDivider} />}
+                  <View style={styles.tableRow}>
+                    {/* Student Info Column */}
+                    <View style={{ flex: 2, paddingRight: 6 }}>
+                      <ThemedText style={styles.tdName} numberOfLines={1}>
+                        {displayName}
+                      </ThemedText>
+                      <ThemedText style={styles.tdAdm} numberOfLines={1}>
+                        {admNo}
                       </ThemedText>
                     </View>
-                    <View style={styles.studentInfo}>
-                      <ThemedText style={styles.studentName}>{displayName}</ThemedText>
-                      <ThemedText style={styles.studentSub}>
-                        {admNo} • <ThemedText style={{ color: '#38bdf8' }}>{className}</ThemedText>
+
+                    {/* Class Column */}
+                    <View style={{ flex: 1.5, paddingRight: 4 }}>
+                      <ThemedText style={styles.tdClass} numberOfLines={1}>
+                        {className}
                       </ThemedText>
                     </View>
-                    <Badge label={status} variant={status === 'ACTIVE' || status === 'ACTIVE' ? 'success' : 'neutral'} size="sm" />
-                  </TouchableOpacity>
+
+                    {/* Status Column */}
+                    <View style={{ flex: 1, alignItems: 'center' }}>
+                      <Badge
+                        label={statusRaw.toUpperCase()}
+                        variant={statusRaw === 'active' ? 'success' : statusRaw === 'graduated' ? 'info' : 'neutral'}
+                        size="sm"
+                      />
+                    </View>
+
+                    {/* Admin Actions Column */}
+                    {isAdminOrAccountant && (
+                      <TouchableOpacity
+                        style={styles.actionIconButton}
+                        onPress={() => handleOpenAction(item)}
+                      >
+                        <MoreVertical size={18} color="#94a3b8" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               );
-            })}
-          </ThemedView>
-        )}
+            })
+          )}
+
+          {/* Server-Side Pagination Bar */}
+          <View style={styles.paginationBar}>
+            <ThemedText style={styles.paginationText}>
+              Page {page} of {totalPages} ({totalStudents} Total)
+            </ThemedText>
+
+            <View style={styles.pageButtonsRow}>
+              <TouchableOpacity
+                style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
+                disabled={page <= 1}
+                onPress={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft size={18} color={page <= 1 ? '#475569' : '#38bdf8'} />
+                <ThemedText style={[styles.pageBtnText, page <= 1 && styles.pageBtnTextDisabled]}>
+                  Prev
+                </ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.pageBtn, page >= totalPages && styles.pageBtnDisabled]}
+                disabled={page >= totalPages}
+                onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                <ThemedText style={[styles.pageBtnText, page >= totalPages && styles.pageBtnTextDisabled]}>
+                  Next
+                </ThemedText>
+                <ChevronRight size={18} color={page >= totalPages ? '#475569' : '#38bdf8'} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ThemedView>
       </ScrollView>
+
+      {/* Admin Quick Action Sheet Modal */}
+      <Modal visible={showActionModal} transparent animationType="fade" onRequestClose={() => setShowActionModal(false)}>
+        <View style={styles.modalOverlay}>
+          <ThemedView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Admin Actions</ThemedText>
+              <TouchableOpacity onPress={() => setShowActionModal(false)}>
+                <X size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            {activeStudent && (
+              <View style={styles.studentPreviewCard}>
+                <ThemedText style={styles.previewName}>
+                  {activeStudent.firstName} {activeStudent.lastName}
+                </ThemedText>
+                <ThemedText style={styles.previewSub}>
+                  Admission: {activeStudent.admissionNumber || activeStudent.admissionNo || 'N/A'}
+                </ThemedText>
+              </View>
+            )}
+
+            {/* Action Option 1: Promote Student */}
+            <TouchableOpacity
+              style={styles.modalActionItem}
+              onPress={() => {
+                setShowActionModal(false);
+                setShowPromoteModal(true);
+              }}
+            >
+              <GraduationCap size={20} color="#38bdf8" style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.actionItemTitle}>Promote Student</ThemedText>
+                <ThemedText style={styles.actionItemSub}>Advance student to next academic class</ThemedText>
+              </View>
+              <ChevronRight size={18} color="#64748b" />
+            </TouchableOpacity>
+
+            <View style={styles.modalDivider} />
+
+            {/* Action Option 2: Toggle Status */}
+            {activeStudent?.status === 'inactive' ? (
+              <TouchableOpacity
+                style={styles.modalActionItem}
+                onPress={() =>
+                  updateStatusMutation.mutate({ id: activeStudent._id || activeStudent.id, newStatus: 'active' })
+                }
+              >
+                <UserCheck size={20} color="#4ade80" style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={[styles.actionItemTitle, { color: '#4ade80' }]}>Activate Student</ThemedText>
+                  <ThemedText style={styles.actionItemSub}>Restore student account to active roster</ThemedText>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.modalActionItem}
+                onPress={() =>
+                  updateStatusMutation.mutate({ id: activeStudent._id || activeStudent.id, newStatus: 'inactive' })
+                }
+              >
+                <UserX size={20} color="#fbbf24" style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={[styles.actionItemTitle, { color: '#fbbf24' }]}>Deactivate Student</ThemedText>
+                  <ThemedText style={styles.actionItemSub}>Set status to inactive</ThemedText>
+                </View>
+              </TouchableOpacity>
+            )}
+          </ThemedView>
+        </View>
+      </Modal>
+
+      {/* Promote Student Modal */}
+      <Modal visible={showPromoteModal} transparent animationType="slide" onRequestClose={() => setShowPromoteModal(false)}>
+        <View style={styles.modalOverlay}>
+          <ThemedView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Promote Student</ThemedText>
+              <TouchableOpacity onPress={() => setShowPromoteModal(false)}>
+                <X size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <ThemedText style={styles.promoteSub}>
+              Select target class to promote {activeStudent?.firstName} {activeStudent?.lastName}:
+            </ThemedText>
+
+            <ScrollView style={{ maxHeight: 220, marginVertical: 12 }}>
+              {classesList.map((c: any) => {
+                const isSelected = targetPromoteClassId === (c._id || c.id);
+                return (
+                  <TouchableOpacity
+                    key={c._id || c.id}
+                    style={[styles.classSelectItem, isSelected && styles.classSelectItemActive]}
+                    onPress={() => setTargetPromoteClassId(c._id || c.id)}
+                  >
+                    <ThemedText style={[styles.classSelectText, isSelected && styles.classSelectTextActive]}>
+                      {c.grade} - {c.name}
+                    </ThemedText>
+                    {isSelected && <Check size={18} color="#38bdf8" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.confirmPromoteBtn, !targetPromoteClassId && styles.btnDisabled]}
+              disabled={!targetPromoteClassId || promoteStudentMutation.isPending}
+              onPress={() => {
+                if (activeStudent && targetPromoteClassId) {
+                  promoteStudentMutation.mutate({
+                    id: activeStudent._id || activeStudent.id,
+                    newClassId: targetPromoteClassId,
+                  });
+                }
+              }}
+            >
+              {promoteStudentMutation.isPending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <ThemedText style={styles.confirmPromoteBtnText}>Confirm Promotion</ThemedText>
+              )}
+            </TouchableOpacity>
+          </ThemedView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -167,28 +518,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    marginTop: 8,
+    marginBottom: 14,
+    marginTop: 4,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#f8fafc',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94a3b8',
-    marginTop: 4,
+    marginTop: 2,
   },
   iconButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: '#1e293b',
     borderWidth: 1,
@@ -204,125 +555,302 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     paddingHorizontal: 14,
-    height: 48,
-    marginBottom: 20,
+    height: 44,
+    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
     color: '#f8fafc',
     fontSize: 14,
   },
+  filterSection: {
+    marginBottom: 14,
+    gap: 8,
+  },
+  filterPillsRow: {
+    gap: 8,
+    paddingRight: 10,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterPillSm: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterPillActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: '#38bdf8',
+  },
+  filterPillText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  filterPillTextActive: {
+    color: '#38bdf8',
+    fontWeight: 'bold',
+  },
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#1e293b',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#334155',
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#f8fafc',
-    marginBottom: 14,
-  },
-  listCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 14,
-  },
-  studentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#0284c7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarInitial: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  studentInfo: {
-    flex: 1,
-  },
-  studentName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#f8fafc',
-  },
-  studentSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94a3b8',
     marginTop: 2,
   },
-  itemDivider: {
+  tableCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#334155',
+    overflow: 'hidden',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  thCell: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#94a3b8',
+    letterSpacing: 0.5,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  tableRowDivider: {
     height: 1,
     backgroundColor: '#334155',
-    marginVertical: 4,
+  },
+  tdName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  tdAdm: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  tdClass: {
+    fontSize: 13,
+    color: '#38bdf8',
+    fontWeight: '500',
+  },
+  actionIconButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+    backgroundColor: '#0f172a',
+  },
+  paginationText: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  pageButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+  },
+  pageBtnDisabled: {
+    borderColor: '#334155',
+    backgroundColor: '#0f172a',
+  },
+  pageBtnText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#38bdf8',
+  },
+  pageBtnTextDisabled: {
+    color: '#475569',
   },
   centerContainer: {
-    padding: 40,
+    padding: 32,
     alignItems: 'center',
   },
   loadingText: {
     color: '#94a3b8',
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: 10,
+    fontSize: 13,
   },
-  emptyCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 32,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
+  errorText: {
+    color: '#f87171',
+    fontSize: 13,
+    marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#f8fafc',
     marginBottom: 4,
   },
   emptySub: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94a3b8',
     textAlign: 'center',
   },
   retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     backgroundColor: '#0284c7',
-    borderRadius: 10,
+    borderRadius: 8,
   },
   retryBtnText: {
     color: '#ffffff',
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  studentPreviewCard: {
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  previewName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  previewSub: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  modalActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  actionItemTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  actionItemSub: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginVertical: 4,
+  },
+  promoteSub: {
     fontSize: 13,
+    color: '#cbd5e1',
+    marginBottom: 8,
+  },
+  classSelectItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#0f172a',
+    marginBottom: 6,
+  },
+  classSelectItemActive: {
+    borderColor: '#38bdf8',
+    borderWidth: 1,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+  },
+  classSelectText: {
+    fontSize: 14,
+    color: '#cbd5e1',
+  },
+  classSelectTextActive: {
+    color: '#38bdf8',
+    fontWeight: 'bold',
+  },
+  confirmPromoteBtn: {
+    backgroundColor: '#0284c7',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  confirmPromoteBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
 });
