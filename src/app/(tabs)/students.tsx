@@ -19,11 +19,11 @@ import {
   ChevronRight,
   RefreshCw,
   MoreVertical,
-  Filter,
   Check,
   UserCheck,
   UserX,
-  ArrowUpRight,
+  UserPlus,
+  Pencil,
   X,
 } from 'lucide-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -54,7 +54,24 @@ export default function StudentsScreen() {
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [targetPromoteClassId, setTargetPromoteClassId] = useState('');
 
-  // 1. Fetch Classes List for Filter & Promotion
+  // Add & Edit Student Form State
+  const [showStudentFormModal, setShowStudentFormModal] = useState(false);
+  const [isEditingStudent, setIsEditingStudent] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+
+  const [studentForm, setStudentForm] = useState({
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    admissionNumber: '',
+    gender: 'male',
+    parentPhone: '',
+    classId: '',
+    address: '',
+    stateOfOrigin: '',
+  });
+
+  // 1. Fetch Classes List for Filter, Promotion & Form Selection
   const { data: classesList = [] } = useQuery({
     queryKey: ['school-classes'],
     queryFn: async () => {
@@ -114,6 +131,86 @@ export default function StudentsScreen() {
   const totalStudents = studentsResponse?.total || 0;
   const totalPages = studentsResponse?.totalPages || 1;
 
+  // Handlers for Add & Edit Forms
+  const handleOpenAddStudent = () => {
+    setIsEditingStudent(false);
+    setEditingStudentId(null);
+    setStudentForm({
+      firstName: '',
+      lastName: '',
+      middleName: '',
+      admissionNumber: '',
+      gender: 'male',
+      parentPhone: '',
+      classId: classesList[0]?._id || classesList[0]?.id || '',
+      address: '',
+      stateOfOrigin: '',
+    });
+    setShowStudentFormModal(true);
+  };
+
+  const handleOpenEditStudent = (student: any) => {
+    setIsEditingStudent(true);
+    setEditingStudentId(student._id || student.id);
+    const existingClassId = typeof student.classId === 'object' ? student.classId?._id || student.classId?.id : student.classId;
+
+    setStudentForm({
+      firstName: student.firstName || '',
+      lastName: student.lastName || '',
+      middleName: student.middleName || '',
+      admissionNumber: student.admissionNumber || student.admissionNo || '',
+      gender: (student.gender || 'male').toLowerCase(),
+      parentPhone: student.parentPhone || '',
+      classId: existingClassId || classesList[0]?._id || '',
+      address: student.address || '',
+      stateOfOrigin: student.stateOfOrigin || '',
+    });
+    setShowActionModal(false);
+    setShowStudentFormModal(true);
+  };
+
+  // Mutation: Save Student Record (Create / Update)
+  const saveStudentMutation = useMutation({
+    mutationFn: async () => {
+      const payload: any = {
+        firstName: studentForm.firstName.trim(),
+        lastName: studentForm.lastName.trim(),
+        middleName: studentForm.middleName.trim(),
+        gender: studentForm.gender,
+        parentPhone: studentForm.parentPhone.trim(),
+      };
+      if (studentForm.admissionNumber.trim()) {
+        payload.admissionNumber = studentForm.admissionNumber.trim();
+      }
+      if (studentForm.classId) {
+        payload.classId = studentForm.classId;
+      }
+      if (studentForm.address.trim()) {
+        payload.address = studentForm.address.trim();
+      }
+      if (studentForm.stateOfOrigin.trim()) {
+        payload.stateOfOrigin = studentForm.stateOfOrigin.trim();
+      }
+
+      if (isEditingStudent && editingStudentId) {
+        return await apiClient.patch(`/admin/students/${editingStudentId}`, payload);
+      } else {
+        return await apiClient.post('/admin/students', payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students-table'] });
+      setShowStudentFormModal(false);
+      Alert.alert(
+        'Success',
+        isEditingStudent ? 'Student details updated successfully!' : 'New student created successfully!'
+      );
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to save student record.');
+    },
+  });
+
   // Mutation: Update Student Status (Active / Inactive)
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, newStatus }: { id: string; newStatus: string }) => {
@@ -161,9 +258,17 @@ export default function StudentsScreen() {
             <ThemedText style={styles.title}>Student Roster</ThemedText>
             <ThemedText style={styles.subtitle}>Academic directory & class management</ThemedText>
           </View>
-          <TouchableOpacity style={styles.iconButton} onPress={() => refetch()}>
-            {isFetching ? <ActivityIndicator size="small" color="#38bdf8" /> : <RefreshCw size={18} color="#38bdf8" />}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {isAdminOrAccountant && (
+              <TouchableOpacity style={styles.addBtn} onPress={handleOpenAddStudent}>
+                <UserPlus size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                <ThemedText style={styles.addBtnText}>Add Student</ThemedText>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.iconButton} onPress={() => refetch()}>
+              {isFetching ? <ActivityIndicator size="small" color="#38bdf8" /> : <RefreshCw size={18} color="#38bdf8" />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Input */}
@@ -404,7 +509,22 @@ export default function StudentsScreen() {
               </View>
             )}
 
-            {/* Action Option 1: Promote Student */}
+            {/* Action Option 1: Edit Student Details */}
+            <TouchableOpacity
+              style={styles.modalActionItem}
+              onPress={() => handleOpenEditStudent(activeStudent)}
+            >
+              <Pencil size={20} color="#38bdf8" style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.actionItemTitle}>Edit Student Details</ThemedText>
+                <ThemedText style={styles.actionItemSub}>Modify name, admission no, phone & class</ThemedText>
+              </View>
+              <ChevronRight size={18} color="#64748b" />
+            </TouchableOpacity>
+
+            <View style={styles.modalDivider} />
+
+            {/* Action Option 2: Promote Student */}
             <TouchableOpacity
               style={styles.modalActionItem}
               onPress={() => {
@@ -412,7 +532,7 @@ export default function StudentsScreen() {
                 setShowPromoteModal(true);
               }}
             >
-              <GraduationCap size={20} color="#38bdf8" style={{ marginRight: 12 }} />
+              <GraduationCap size={20} color="#4ade80" style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
                 <ThemedText style={styles.actionItemTitle}>Promote Student</ThemedText>
                 <ThemedText style={styles.actionItemSub}>Advance student to next academic class</ThemedText>
@@ -422,7 +542,7 @@ export default function StudentsScreen() {
 
             <View style={styles.modalDivider} />
 
-            {/* Action Option 2: Toggle Status */}
+            {/* Action Option 3: Toggle Status */}
             {activeStudent?.status === 'inactive' ? (
               <TouchableOpacity
                 style={styles.modalActionItem}
@@ -450,6 +570,149 @@ export default function StudentsScreen() {
                 </View>
               </TouchableOpacity>
             )}
+          </ThemedView>
+        </View>
+      </Modal>
+
+      {/* Add & Edit Student Form Modal */}
+      <Modal visible={showStudentFormModal} transparent animationType="slide" onRequestClose={() => setShowStudentFormModal(false)}>
+        <View style={styles.modalOverlay}>
+          <ThemedView style={[styles.modalContent, { maxHeight: '88%' }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>
+                {isEditingStudent ? 'Edit Student Record' : 'Add New Student'}
+              </ThemedText>
+              <TouchableOpacity onPress={() => setShowStudentFormModal(false)}>
+                <X size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              {/* First Name */}
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>First Name *</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. John"
+                  placeholderTextColor="#64748b"
+                  value={studentForm.firstName}
+                  onChangeText={(val) => setStudentForm((p) => ({ ...p, firstName: val }))}
+                />
+              </View>
+
+              {/* Last Name */}
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Last Name *</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. Doe"
+                  placeholderTextColor="#64748b"
+                  value={studentForm.lastName}
+                  onChangeText={(val) => setStudentForm((p) => ({ ...p, lastName: val }))}
+                />
+              </View>
+
+              {/* Middle Name */}
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Middle Name</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. Adam"
+                  placeholderTextColor="#64748b"
+                  value={studentForm.middleName}
+                  onChangeText={(val) => setStudentForm((p) => ({ ...p, middleName: val }))}
+                />
+              </View>
+
+              {/* Admission Number */}
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Admission Number</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. ADM001"
+                  placeholderTextColor="#64748b"
+                  value={studentForm.admissionNumber}
+                  onChangeText={(val) => setStudentForm((p) => ({ ...p, admissionNumber: val }))}
+                />
+              </View>
+
+              {/* Parent Phone */}
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Parent Phone Number *</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. 08012345678"
+                  placeholderTextColor="#64748b"
+                  keyboardType="phone-pad"
+                  value={studentForm.parentPhone}
+                  onChangeText={(val) => setStudentForm((p) => ({ ...p, parentPhone: val }))}
+                />
+              </View>
+
+              {/* Gender Selector */}
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Gender</ThemedText>
+                <View style={styles.genderRow}>
+                  <TouchableOpacity
+                    style={[styles.genderBtn, studentForm.gender === 'male' && styles.genderBtnActive]}
+                    onPress={() => setStudentForm((p) => ({ ...p, gender: 'male' }))}
+                  >
+                    <ThemedText style={[styles.genderBtnText, studentForm.gender === 'male' && styles.genderBtnTextActive]}>
+                      Male
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.genderBtn, studentForm.gender === 'female' && styles.genderBtnActive]}
+                    onPress={() => setStudentForm((p) => ({ ...p, gender: 'female' }))}
+                  >
+                    <ThemedText style={[styles.genderBtnText, studentForm.gender === 'female' && styles.genderBtnTextActive]}>
+                      Female
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Class Arm Selector */}
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Assigned Class Arm *</ThemedText>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                  {classesList.map((c: any) => {
+                    const cId = c._id || c.id;
+                    const isSelected = studentForm.classId === cId;
+                    const label = `${c.grade || ''} ${c.name || ''}`.trim();
+                    return (
+                      <TouchableOpacity
+                        key={cId}
+                        style={[styles.classPill, isSelected && styles.classPillActive]}
+                        onPress={() => setStudentForm((p) => ({ ...p, classId: cId }))}
+                      >
+                        <ThemedText style={[styles.classPillText, isSelected && styles.classPillTextActive]}>
+                          {label}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Save Button */}
+              <TouchableOpacity
+                style={[
+                  styles.saveFormBtn,
+                  (!studentForm.firstName || !studentForm.lastName || !studentForm.parentPhone || !studentForm.classId) && styles.btnDisabled,
+                ]}
+                disabled={!studentForm.firstName || !studentForm.lastName || !studentForm.parentPhone || !studentForm.classId || saveStudentMutation.isPending}
+                onPress={() => saveStudentMutation.mutate()}
+              >
+                {saveStudentMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <ThemedText style={styles.saveFormBtnText}>
+                    {isEditingStudent ? 'Save Changes' : 'Create Student Record'}
+                  </ThemedText>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </ThemedView>
         </View>
       </Modal>
@@ -537,10 +800,23 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 2,
   },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  addBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
   iconButton: {
     width: 38,
     height: 38,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: '#1e293b',
     borderWidth: 1,
     borderColor: '#334155',
@@ -846,6 +1122,82 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   confirmPromoteBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  formGroup: {
+    marginBottom: 12,
+  },
+  formLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#94a3b8',
+    marginBottom: 6,
+  },
+  formInput: {
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    color: '#f8fafc',
+    paddingHorizontal: 12,
+    height: 44,
+    fontSize: 14,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderBtn: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  genderBtnActive: {
+    borderColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  genderBtnText: {
+    fontSize: 13,
+    color: '#94a3b8',
+  },
+  genderBtnTextActive: {
+    color: '#38bdf8',
+    fontWeight: 'bold',
+  },
+  classPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  classPillActive: {
+    borderColor: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  classPillText: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  classPillTextActive: {
+    color: '#38bdf8',
+    fontWeight: 'bold',
+  },
+  saveFormBtn: {
+    backgroundColor: '#0284c7',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  saveFormBtnText: {
     color: '#ffffff',
     fontSize: 15,
     fontWeight: 'bold',
