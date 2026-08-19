@@ -35,6 +35,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Badge } from '@/components/ui/badge';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -801,16 +802,12 @@ export default function StudentsScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  <View style={styles.formGroup}>
-                    <ThemedText style={styles.formLabel}>Date of Birth (YYYY-MM-DD)</ThemedText>
-                    <TextInput
-                      style={styles.formInput}
-                      placeholder="e.g. 2012-05-15"
-                      placeholderTextColor="#64748b"
-                      value={studentForm.dateOfBirth}
-                      onChangeText={(val) => setStudentForm((p) => ({ ...p, dateOfBirth: val }))}
-                    />
-                  </View>
+                  <DatePickerField
+                    label="Date of Birth"
+                    value={studentForm.dateOfBirth}
+                    onChange={(val) => setStudentForm((p) => ({ ...p, dateOfBirth: val }))}
+                    placeholder="Select Date of Birth"
+                  />
 
                   <View style={styles.formGroup}>
                     <ThemedText style={styles.formLabel}>State of Origin</ThemedText>

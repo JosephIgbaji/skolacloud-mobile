@@ -29,6 +29,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Badge } from '@/components/ui/badge';
+import { DatePickerField } from '@/components/ui/date-picker-field';
 import { apiClient } from '@/lib/api-client';
 
 export default function AcademicSetupScreen() {
@@ -402,27 +403,19 @@ export default function AcademicSetupScreen() {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>Start Date (YYYY-MM-DD) *</ThemedText>
-              <TextInput
-                style={styles.formInput}
-                placeholder="e.g. 2025-09-01"
-                placeholderTextColor="#64748b"
-                value={sessionForm.startDate}
-                onChangeText={(val) => setSessionForm((p) => ({ ...p, startDate: val }))}
-              />
-            </View>
+            <DatePickerField
+              label="Start Date *"
+              value={sessionForm.startDate}
+              onChange={(val) => setSessionForm((p) => ({ ...p, startDate: val }))}
+              placeholder="Select Start Date"
+            />
 
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>End Date (YYYY-MM-DD) *</ThemedText>
-              <TextInput
-                style={styles.formInput}
-                placeholder="e.g. 2026-07-25"
-                placeholderTextColor="#64748b"
-                value={sessionForm.endDate}
-                onChangeText={(val) => setSessionForm((p) => ({ ...p, endDate: val }))}
-              />
-            </View>
+            <DatePickerField
+              label="End Date *"
+              value={sessionForm.endDate}
+              onChange={(val) => setSessionForm((p) => ({ ...p, endDate: val }))}
+              placeholder="Select End Date"
+            />
 
             <TouchableOpacity
               style={[styles.saveBtn, (!sessionForm.name || !sessionForm.startDate || !sessionForm.endDate) && styles.btnDisabled]}
@@ -461,27 +454,19 @@ export default function AcademicSetupScreen() {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>Start Date (YYYY-MM-DD) *</ThemedText>
-              <TextInput
-                style={styles.formInput}
-                placeholder="e.g. 2025-09-10"
-                placeholderTextColor="#64748b"
-                value={termForm.startDate}
-                onChangeText={(val) => setTermForm((p) => ({ ...p, startDate: val }))}
-              />
-            </View>
+            <DatePickerField
+              label="Start Date *"
+              value={termForm.startDate}
+              onChange={(val) => setTermForm((p) => ({ ...p, startDate: val }))}
+              placeholder="Select Term Start Date"
+            />
 
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>End Date (YYYY-MM-DD) *</ThemedText>
-              <TextInput
-                style={styles.formInput}
-                placeholder="e.g. 2025-12-18"
-                placeholderTextColor="#64748b"
-                value={termForm.endDate}
-                onChangeText={(val) => setTermForm((p) => ({ ...p, endDate: val }))}
-              />
-            </View>
+            <DatePickerField
+              label="End Date *"
+              value={termForm.endDate}
+              onChange={(val) => setTermForm((p) => ({ ...p, endDate: val }))}
+              placeholder="Select Term End Date"
+            />
 
             <TouchableOpacity
               style={[styles.saveBtn, (!termForm.name || !termForm.startDate || !termForm.endDate) && styles.btnDisabled]}

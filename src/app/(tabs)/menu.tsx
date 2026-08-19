@@ -1,43 +1,36 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  SafeAreaView,
-  Dimensions,
-} from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  Users,
-  Inbox,
-  MonitorPlay,
-  BookOpen,
-  Calendar,
-  FileText,
-  Briefcase,
-  Home as HomeIcon,
-  Bus,
-  Settings,
-  LogOut,
-  ChevronRight,
-  Sparkles,
-  Layers,
-  X,
-  CreditCard,
-  Clock,
-  UserCheck,
-  ShieldCheck,
-  Building2,
-  DollarSign,
   Bell,
-  HelpCircle,
+  BookOpen,
+  Briefcase,
+  Bus,
+  Calendar,
+  ChevronRight,
+  DollarSign,
+  FileText,
+  Home as HomeIcon,
+  Inbox,
+  Layers,
+  LogOut,
   Menu,
+  MonitorPlay,
+  Settings,
+  ShieldCheck,
+  Users,
+  X
 } from 'lucide-react-native';
+import { useState } from 'react';
+import {
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/hooks/use-auth';
 
 const { width } = Dimensions.get('window');
