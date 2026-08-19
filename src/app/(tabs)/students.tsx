@@ -480,8 +480,13 @@ export default function StudentsScreen() {
               const displayName = `${item.firstName || ''} ${item.lastName || ''}`.trim() || item.fullName || item.name || 'Student';
               const admNo = item.admissionNo || item.admissionNumber || `ID-${item._id?.substring(0, 6)}`;
 
-              const classObj = item.classId || item.class;
-              const className = item.className || (typeof classObj === 'object' && classObj ? (classObj.name ? `${classObj.grade ? classObj.grade + ' ' : ''}${classObj.name}` : classObj.grade || 'Unassigned') : 'Unassigned');
+              const rawClassId = typeof item.classId === 'object' ? item.classId?._id || item.classId?.id : item.classId;
+              const foundClass = classesList.find((c: any) => (c._id || c.id) === rawClassId);
+              const className = foundClass
+                ? `${foundClass.grade} - ${foundClass.name}`
+                : (typeof item.classId === 'object' && item.classId
+                    ? `${item.classId.grade ? item.classId.grade + ' - ' : ''}${item.classId.name || ''}`.trim()
+                    : item.className || 'Unassigned');
 
               const statusRaw = (item.status || (item.isActive !== false ? 'active' : 'inactive')).toLowerCase();
 
@@ -776,12 +781,12 @@ export default function StudentsScreen() {
                   </View>
 
                   <View style={styles.formGroup}>
-                    <ThemedText style={styles.formLabel}>Assigned Class Arm *</ThemedText>
+                    <ThemedText style={styles.formLabel}>Class *</ThemedText>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
                       {classesList.map((c: any) => {
                         const cId = c._id || c.id;
                         const isSelected = studentForm.classId === cId;
-                        const label = `${c.grade || ''} ${c.name || ''}`.trim();
+                        const label = c.grade && c.name ? `${c.grade} - ${c.name}` : c.grade || c.name || 'Class';
                         return (
                           <TouchableOpacity
                             key={cId}
