@@ -17,7 +17,9 @@ export default function StudentsScreen() {
 
   // Fetch real students from backend API with limit=500 for full school directory
   const { data: responseData, isLoading, isError, refetch } = useQuery({
-    queryKey: ['students-list', rawRole],
+    queryKey: ['students-list', rawRole, user?._id || user?.id],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       let endpoint = '/admin/students';
       if (rawRole === 'teacher') endpoint = '/teacher/students';
