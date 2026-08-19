@@ -109,6 +109,26 @@ export default function HomeScreen() {
     },
   });
 
+  // Direct fallback query for students list count
+  const { data: fallbackStudentsCount } = useQuery({
+    queryKey: ['admin-students-fallback-count'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/admin/students');
+        const raw = res.data;
+        if (Array.isArray(raw)) return raw.length;
+        if (typeof raw?.total === 'number') return raw.total;
+        if (Array.isArray(raw?.data)) return raw.data.length;
+        return 0;
+      } catch {
+        return 0;
+      }
+    },
+    enabled: rawRole === 'admin' || rawRole === 'super_admin' || rawRole === 'superadmin',
+  });
+
+  const studentCount = dashboardData?.students || fallbackStudentsCount || 0;
+
   const currentDateStr = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
     day: 'numeric',
@@ -186,7 +206,7 @@ export default function HomeScreen() {
               <>
                 <View style={styles.metricItem}>
                   <ThemedText style={styles.metricValue}>
-                    {dashboardData?.students ?? 0}
+                    {studentCount}
                   </ThemedText>
                   <ThemedText style={styles.metricLabel}>Students</ThemedText>
                 </View>
