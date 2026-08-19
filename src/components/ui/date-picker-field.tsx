@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, Modal } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Calendar, ChevronRight } from 'lucide-react-native';
 import { ThemedText } from '@/components/themed-text';
 
@@ -29,7 +29,11 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
 
   const currentDate = parseDate(value);
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
+  const handleNativeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (event.type === 'dismissed') {
+      setShowPicker(false);
+      return;
+    }
     if (Platform.OS === 'android') {
       setShowPicker(false);
     }
@@ -53,6 +57,34 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
     return str;
   };
 
+  // Web Platform specific Date Picker rendering to eliminate Community DatePicker web warnings
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.container}>
+        {label && <ThemedText style={styles.label}>{label}</ThemedText>}
+        <View style={styles.webInputWrapper}>
+          <Calendar size={18} color="#38bdf8" style={{ marginRight: 8 }} />
+          <input
+            type="date"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+              flex: 1,
+              backgroundColor: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: value ? '#f8fafc' : '#64748b',
+              fontSize: '14px',
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+            }}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // Native iOS and Android DatePicker rendering
   return (
     <View style={styles.container}>
       {label && <ThemedText style={styles.label}>{label}</ThemedText>}
@@ -80,7 +112,7 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
                   mode="date"
                   display="spinner"
                   textColor="#f8fafc"
-                  onChange={handleDateChange}
+                  onChange={handleNativeChange}
                 />
               </View>
             </TouchableOpacity>
@@ -90,7 +122,7 @@ export function DatePickerField({ label, value, onChange, placeholder = 'Select 
             value={currentDate}
             mode="date"
             display="default"
-            onChange={handleDateChange}
+            onChange={handleNativeChange}
           />
         )
       )}
@@ -109,6 +141,16 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   triggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  webInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0f172a',
