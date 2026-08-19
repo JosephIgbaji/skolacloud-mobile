@@ -94,6 +94,16 @@ export default function MenuScreen() {
       title: 'ACADEMIC MANAGEMENT',
       items: [
         {
+          id: 'academic-setup',
+          title: 'Academic Sessions & Terms',
+          subtitle: 'Sessions, terms & class structure',
+          icon: Calendar,
+          color: '#38bdf8',
+          bgColor: 'rgba(56, 189, 248, 0.12)',
+          route: '/academic-setup',
+          badge: 'SETUP',
+        },
+        {
           id: 'classes',
           title: 'Classes & Sections',
           subtitle: 'Class teacher & arms assignment',
