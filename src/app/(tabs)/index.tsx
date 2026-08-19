@@ -172,31 +172,27 @@ export default function HomeScreen() {
           <View style={styles.metricsRow}>
             <View style={styles.metricItem}>
               <ThemedText style={styles.metricValue}>
-                {dashboardData?.attendanceRate ?? '96%'}
+                {dashboardData?.students ?? 0}
               </ThemedText>
-              <ThemedText style={styles.metricLabel}>Attendance</ThemedText>
+              <ThemedText style={styles.metricLabel}>Students</ThemedText>
             </View>
 
             <View style={styles.metricDivider} />
 
             <View style={styles.metricItem}>
               <ThemedText style={[styles.metricValue, { color: '#facc15' }]}>
-                {rawRole === 'parent' || rawRole === 'student'
-                  ? dashboardData?.pendingFees ? `₦${dashboardData.pendingFees.toLocaleString()}` : 'Cleared'
-                  : dashboardData?.totalStudents ?? '350+'}
+                {dashboardData?.teachers ?? 0}
               </ThemedText>
-              <ThemedText style={styles.metricLabel}>
-                {rawRole === 'parent' || rawRole === 'student' ? 'Fees Status' : 'Students'}
-              </ThemedText>
+              <ThemedText style={styles.metricLabel}>Teachers</ThemedText>
             </View>
 
             <View style={styles.metricDivider} />
 
             <View style={styles.metricItem}>
               <ThemedText style={[styles.metricValue, { color: '#4ade80' }]}>
-                {dashboardData?.activeTerm ?? 'Term 2'}
+                {dashboardData?.classes ?? 1}
               </ThemedText>
-              <ThemedText style={styles.metricLabel}>Current Session</ThemedText>
+              <ThemedText style={styles.metricLabel}>Classes</ThemedText>
             </View>
           </View>
         </Card>
@@ -208,30 +204,30 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.gridContainer}>
-          {/* Action 1: Timetable */}
+          {/* Action 1: Students Roster */}
           <TouchableOpacity
             activeOpacity={0.75}
             style={[styles.gridCard, { borderColor: 'rgba(56, 189, 248, 0.25)' }]}
-            onPress={() => router.push('/attendance' as any)}
+            onPress={() => router.push('/students')}
           >
             <View style={styles.cardHeaderRow}>
               <View style={[styles.iconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-                <Clock size={22} color="#38bdf8" />
+                <GraduationCap size={22} color="#38bdf8" />
               </View>
               <View style={styles.arrowBox}>
                 <ArrowUpRight size={14} color="#38bdf8" />
               </View>
             </View>
-            <ThemedText style={styles.gridTitle}>Timetable</ThemedText>
-            <ThemedText style={styles.gridSub}>Class & subject schedule</ThemedText>
-            <Badge label="Daily Roster" variant="info" />
+            <ThemedText style={styles.gridTitle}>Students</ThemedText>
+            <ThemedText style={styles.gridSub}>Roster & directory</ThemedText>
+            <Badge label="Academics" variant="info" />
           </TouchableOpacity>
 
           {/* Action 2: Attendance Tracker */}
           <TouchableOpacity
             activeOpacity={0.75}
             style={[styles.gridCard, { borderColor: 'rgba(74, 222, 128, 0.25)' }]}
-            onPress={() => router.push('/attendance' as any)}
+            onPress={() => router.push('/attendance')}
           >
             <View style={styles.cardHeaderRow}>
               <View style={[styles.iconBox, { backgroundColor: 'rgba(74, 222, 128, 0.15)' }]}>
@@ -248,30 +244,11 @@ export default function HomeScreen() {
             <Badge label="Active Term" variant="success" />
           </TouchableOpacity>
 
-          {/* Action 3: Results & Report Cards */}
-          <TouchableOpacity
-            activeOpacity={0.75}
-            style={[styles.gridCard, { borderColor: 'rgba(192, 132, 252, 0.25)' }]}
-            onPress={() => router.push('/profile')}
-          >
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.iconBox, { backgroundColor: 'rgba(192, 132, 252, 0.15)' }]}>
-                <GraduationCap size={22} color="#c084fc" />
-              </View>
-              <View style={styles.arrowBox}>
-                <ArrowUpRight size={14} color="#c084fc" />
-              </View>
-            </View>
-            <ThemedText style={styles.gridTitle}>Report Cards</ThemedText>
-            <ThemedText style={styles.gridSub}>Term results & grades</ThemedText>
-            <Badge label="Academics" variant="info" />
-          </TouchableOpacity>
-
-          {/* Action 4: School Fees & Payments */}
+          {/* Action 3: School Fees & Payments */}
           <TouchableOpacity
             activeOpacity={0.75}
             style={[styles.gridCard, { borderColor: 'rgba(250, 204, 21, 0.25)' }]}
-            onPress={() => router.push('/profile')}
+            onPress={() => router.push('/fees')}
           >
             <View style={styles.cardHeaderRow}>
               <View style={[styles.iconBox, { backgroundColor: 'rgba(250, 204, 21, 0.15)' }]}>
@@ -283,7 +260,7 @@ export default function HomeScreen() {
             </View>
             <ThemedText style={styles.gridTitle}>School Fees</ThemedText>
             <ThemedText style={styles.gridSub}>Invoices & receipts</ThemedText>
-            <Badge label="Payments" variant="gold" />
+            <Badge label="Finance" variant="gold" />
           </TouchableOpacity>
 
           {/* Action 5: CBT Exams & Quizzes */}
