@@ -17,6 +17,7 @@ import {
   MonitorPlay,
   Settings,
   ShieldCheck,
+  UserCheck,
   Users,
   X
 } from 'lucide-react-native';
@@ -55,179 +56,307 @@ interface NavCategory {
 export default function MenuScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const rawRole = (user?.role || 'admin').toLowerCase();
+  const isTeacher = rawRole === 'teacher';
 
-  const categories: NavCategory[] = [
-    {
-      title: 'PEOPLES & STAFF',
-      items: [
+  const categories: NavCategory[] = isTeacher
+    ? [
         {
-          id: 'students',
-          title: rawRole === 'teacher' ? 'My Class Students' : 'Student Registry',
-          subtitle: rawRole === 'teacher' ? 'View assigned class roster & contact parents' : 'School-wide student directory & management',
-          icon: Users,
-          color: '#f472b6',
-          bgColor: 'rgba(244, 114, 182, 0.12)',
-          route: rawRole === 'teacher' ? '/teacher-students' : '/admin-students',
+          title: 'TEACHING & CLASSROOM',
+          items: [
+            {
+              id: 'teacher-students',
+              title: 'My Class Roster',
+              subtitle: 'View assigned class roster & contact parents',
+              icon: Users,
+              color: '#f472b6',
+              bgColor: 'rgba(244, 114, 182, 0.12)',
+              route: '/teacher-students',
+            },
+            {
+              id: 'teacher-student-attendance',
+              title: 'Student Attendance',
+              subtitle: 'Mark & view daily class attendance',
+              icon: UserCheck,
+              color: '#4ade80',
+              bgColor: 'rgba(74, 222, 128, 0.12)',
+              route: '/teacher-student-attendance',
+            },
+            {
+              id: 'teacher-classes',
+              title: 'My Classes & Arms',
+              subtitle: 'View assigned subject arms & class schedule',
+              icon: MonitorPlay,
+              color: '#38bdf8',
+              bgColor: 'rgba(56, 189, 248, 0.12)',
+              route: '/teacher-classes',
+            },
+            {
+              id: 'teacher-subjects',
+              title: 'My Subjects',
+              subtitle: 'View assigned curriculum & subject allocations',
+              icon: BookOpen,
+              color: '#a78bfa',
+              bgColor: 'rgba(167, 139, 250, 0.12)',
+              route: '/teacher-subjects',
+            },
+            {
+              id: 'teacher-timetable',
+              title: 'My Timetable',
+              subtitle: 'Weekly teaching period schedule',
+              icon: Calendar,
+              color: '#f472b6',
+              bgColor: 'rgba(244, 114, 182, 0.12)',
+              route: '/teacher-timetable',
+            },
+            {
+              id: 'teacher-results',
+              title: 'Gradebook & Exam Results',
+              subtitle: 'Enter grades, continuous assessments & comments',
+              icon: FileText,
+              color: '#38bdf8',
+              bgColor: 'rgba(56, 189, 248, 0.12)',
+              route: '/teacher-results',
+            },
+            {
+              id: 'cbt',
+              title: 'CBT Online Testing',
+              subtitle: 'Question bank & automated exams',
+              icon: Layers,
+              color: '#c084fc',
+              bgColor: 'rgba(192, 132, 252, 0.12)',
+              route: '/cbt',
+            },
+          ],
         },
         {
-          id: 'teachers',
-          title: 'Teachers & Staff',
-          subtitle: 'Staff directory & role permissions',
-          icon: Users,
-          color: '#38bdf8',
-          bgColor: 'rgba(56, 189, 248, 0.12)',
-          route: '/teachers',
+          title: 'STAFF & PERSONAL TOOLS',
+          items: [
+            {
+              id: 'staff-attendance',
+              title: 'Staff Attendance & Clock-In',
+              subtitle: 'Clock in/out, log hours & track work shift',
+              icon: Clock,
+              color: '#4ade80',
+              bgColor: 'rgba(74, 222, 128, 0.12)',
+              route: '/staff-attendance',
+              badge: 'HRM',
+            },
+            {
+              id: 'notifications',
+              title: 'Broadcast Announcements',
+              subtitle: 'Push SMS, Email & App notices',
+              icon: Bell,
+              color: '#38bdf8',
+              bgColor: 'rgba(56, 189, 248, 0.12)',
+              route: '/notifications',
+            },
+          ],
         },
         {
-          id: 'applications',
-          title: 'Admissions & Applications',
-          subtitle: 'Review student online applications',
-          icon: Inbox,
-          color: '#fbbf24',
-          bgColor: 'rgba(251, 191, 36, 0.12)',
-          route: '/applications',
-          badge: 'NEW',
+          title: 'CAMPUS RESOURCES',
+          items: [
+            {
+              id: 'library',
+              title: 'Library Catalog',
+              subtitle: 'Book catalog & resource search',
+              icon: BookOpen,
+              color: '#fbbf24',
+              bgColor: 'rgba(251, 191, 36, 0.12)',
+              route: '/library',
+            },
+            {
+              id: 'transport',
+              title: 'School Transport',
+              subtitle: 'Bus routes & driver rosters',
+              icon: Bus,
+              color: '#a78bfa',
+              bgColor: 'rgba(167, 139, 250, 0.12)',
+              route: '/transport',
+            },
+          ],
+        },
+      ]
+    : [
+        {
+          title: 'PEOPLES & STAFF',
+          items: [
+            {
+              id: 'students',
+              title: 'Student Registry',
+              subtitle: 'School-wide student directory & management',
+              icon: Users,
+              color: '#f472b6',
+              bgColor: 'rgba(244, 114, 182, 0.12)',
+              route: '/admin-students',
+            },
+            {
+              id: 'teachers',
+              title: 'Teachers & Staff',
+              subtitle: 'Staff directory & role permissions',
+              icon: Users,
+              color: '#38bdf8',
+              bgColor: 'rgba(56, 189, 248, 0.12)',
+              route: '/teachers',
+            },
+            {
+              id: 'applications',
+              title: 'Admissions & Applications',
+              subtitle: 'Review student online applications',
+              icon: Inbox,
+              color: '#fbbf24',
+              bgColor: 'rgba(251, 191, 36, 0.12)',
+              route: '/applications',
+              badge: 'NEW',
+            },
+            {
+              id: 'staff-attendance',
+              title: 'Staff Attendance & HRM',
+              subtitle: 'Clock in/out, work hours & late tracking',
+              icon: Clock,
+              color: '#4ade80',
+              bgColor: 'rgba(74, 222, 128, 0.12)',
+              route: '/staff-attendance',
+              badge: 'HRM',
+            },
+          ],
         },
         {
-          id: 'staff-attendance',
-          title: 'Staff Attendance & HRM',
-          subtitle: 'Clock in/out, work hours & late tracking',
-          icon: Clock,
-          color: '#4ade80',
-          bgColor: 'rgba(74, 222, 128, 0.12)',
-          route: '/staff-attendance',
-          badge: 'HRM',
-        },
-      ],
-    },
-    {
-      title: 'ACADEMIC MANAGEMENT',
-      items: [
-        {
-          id: 'academic-setup',
-          title: 'Academic Sessions & Terms',
-          subtitle: 'Sessions, terms & class structure',
-          icon: Calendar,
-          color: '#38bdf8',
-          bgColor: 'rgba(56, 189, 248, 0.12)',
-          route: '/academic-setup',
-          badge: 'SETUP',
-        },
-        {
-          id: 'classes',
-          title: 'Classes & Sections',
-          subtitle: 'Class teacher & arms assignment',
-          icon: MonitorPlay,
-          color: '#4ade80',
-          bgColor: 'rgba(74, 222, 128, 0.12)',
-          route: '/classes',
-        },
-        {
-          id: 'subjects',
-          title: 'Subjects & Curriculum',
-          subtitle: 'Grade subject allocations',
-          icon: BookOpen,
-          color: '#a78bfa',
-          bgColor: 'rgba(167, 139, 250, 0.12)',
-          route: '/subjects',
-        },
-        {
-          id: 'timetable',
-          title: 'Timetables & Schedules',
-          subtitle: 'Class & teacher period schedules',
-          icon: Calendar,
-          color: '#f472b6',
-          bgColor: 'rgba(244, 114, 182, 0.12)',
-          route: '/timetable',
-        },
-        {
-          id: 'results',
-          title: 'Examinations & Results',
-          subtitle: 'Grade entry, approval & report cards',
-          icon: FileText,
-          color: '#38bdf8',
-          bgColor: 'rgba(56, 189, 248, 0.12)',
-          route: '/results',
-        },
-        {
-          id: 'cbt',
-          title: 'CBT Online Testing',
-          subtitle: 'Question bank & automated exams',
-          icon: Layers,
-          color: '#c084fc',
-          bgColor: 'rgba(192, 132, 252, 0.12)',
-          route: '/cbt',
-        },
-      ],
-    },
-    {
-      title: 'FINANCE & HRM',
-      items: [
-        {
-          id: 'expenses',
-          title: 'Expenses & Expenditure',
-          subtitle: 'Operational financial outflow logs',
-          icon: DollarSign,
-          color: '#f87171',
-          bgColor: 'rgba(248, 113, 113, 0.12)',
-          route: '/expenses',
+          title: 'ACADEMIC MANAGEMENT',
+          items: [
+            {
+              id: 'academic-setup',
+              title: 'Academic Sessions & Terms',
+              subtitle: 'Sessions, terms & class structure',
+              icon: Calendar,
+              color: '#38bdf8',
+              bgColor: 'rgba(56, 189, 248, 0.12)',
+              route: '/academic-setup',
+              badge: 'SETUP',
+            },
+            {
+              id: 'classes',
+              title: 'Classes & Sections',
+              subtitle: 'Class teacher & arms assignment',
+              icon: MonitorPlay,
+              color: '#4ade80',
+              bgColor: 'rgba(74, 222, 128, 0.12)',
+              route: '/admin-classes',
+            },
+            {
+              id: 'subjects',
+              title: 'Subjects & Curriculum',
+              subtitle: 'Grade subject allocations',
+              icon: BookOpen,
+              color: '#a78bfa',
+              bgColor: 'rgba(167, 139, 250, 0.12)',
+              route: '/admin-subjects',
+            },
+            {
+              id: 'timetable',
+              title: 'Timetables & Schedules',
+              subtitle: 'Class & teacher period schedules',
+              icon: Calendar,
+              color: '#f472b6',
+              bgColor: 'rgba(244, 114, 182, 0.12)',
+              route: '/admin-timetable',
+            },
+            {
+              id: 'results',
+              title: 'Examinations & Results',
+              subtitle: 'Grade entry, approval & report cards',
+              icon: FileText,
+              color: '#38bdf8',
+              bgColor: 'rgba(56, 189, 248, 0.12)',
+              route: '/admin-results',
+            },
+            {
+              id: 'cbt',
+              title: 'CBT Online Testing',
+              subtitle: 'Question bank & automated exams',
+              icon: Layers,
+              color: '#c084fc',
+              bgColor: 'rgba(192, 132, 252, 0.12)',
+              route: '/cbt',
+            },
+          ],
         },
         {
-          id: 'departments',
-          title: 'Departments',
-          subtitle: 'Academic & administrative arms',
-          icon: Briefcase,
-          color: '#fb7185',
-          bgColor: 'rgba(251, 113, 133, 0.12)',
-          route: '/departments',
+          title: 'FINANCE & HRM',
+          items: [
+            {
+              id: 'fees',
+              title: 'Fee Management & Invoices',
+              subtitle: 'Track student fee balances, invoices & receipts',
+              icon: DollarSign,
+              color: '#34d399',
+              bgColor: 'rgba(52, 211, 153, 0.12)',
+              route: '/(tabs)/fees',
+            },
+            {
+              id: 'expenses',
+              title: 'Expenses & Expenditure',
+              subtitle: 'Operational financial outflow logs',
+              icon: DollarSign,
+              color: '#f87171',
+              bgColor: 'rgba(248, 113, 113, 0.12)',
+              route: '/expenses',
+            },
+            {
+              id: 'departments',
+              title: 'Departments',
+              subtitle: 'Academic & administrative arms',
+              icon: Briefcase,
+              color: '#fb7185',
+              bgColor: 'rgba(251, 113, 133, 0.12)',
+              route: '/departments',
+            },
+            {
+              id: 'notifications',
+              title: 'Broadcast Announcements',
+              subtitle: 'Push SMS, Email & App notices',
+              icon: Bell,
+              color: '#38bdf8',
+              bgColor: 'rgba(56, 189, 248, 0.12)',
+              route: '/notifications',
+            },
+          ],
         },
         {
-          id: 'notifications',
-          title: 'Broadcast Announcements',
-          subtitle: 'Push SMS, Email & App notices',
-          icon: Bell,
-          color: '#38bdf8',
-          bgColor: 'rgba(56, 189, 248, 0.12)',
-          route: '/notifications',
+          title: 'CAMPUS FACILITIES',
+          items: [
+            {
+              id: 'library',
+              title: 'Library Management',
+              subtitle: 'Book catalog, issues & returns',
+              icon: BookOpen,
+              color: '#fbbf24',
+              bgColor: 'rgba(251, 191, 36, 0.12)',
+              route: '/library',
+            },
+            {
+              id: 'hostels',
+              title: 'Hostels & Accommodation',
+              subtitle: 'Room allocations & bed spaces',
+              icon: HomeIcon,
+              color: '#4ade80',
+              bgColor: 'rgba(74, 222, 128, 0.12)',
+              route: '/hostels',
+            },
+            {
+              id: 'transport',
+              title: 'School Transport',
+              subtitle: 'Bus routes & driver rosters',
+              icon: Bus,
+              color: '#a78bfa',
+              bgColor: 'rgba(167, 139, 250, 0.12)',
+              route: '/transport',
+            },
+          ],
         },
-      ],
-    },
-    {
-      title: 'CAMPUS FACILITIES',
-      items: [
-        {
-          id: 'library',
-          title: 'Library Management',
-          subtitle: 'Book catalog, issues & returns',
-          icon: BookOpen,
-          color: '#fbbf24',
-          bgColor: 'rgba(251, 191, 36, 0.12)',
-          route: '/library',
-        },
-        {
-          id: 'hostels',
-          title: 'Hostels & Accommodation',
-          subtitle: 'Room allocations & bed spaces',
-          icon: HomeIcon,
-          color: '#4ade80',
-          bgColor: 'rgba(74, 222, 128, 0.12)',
-          route: '/hostels',
-        },
-        {
-          id: 'transport',
-          title: 'School Transport',
-          subtitle: 'Bus routes & driver rosters',
-          icon: Bus,
-          color: '#a78bfa',
-          bgColor: 'rgba(167, 139, 250, 0.12)',
-          route: '/transport',
-        },
-      ],
-    },
-  ];
+      ];
 
   const handleNavigate = (route: string) => {
     setDrawerOpen(false);
@@ -239,8 +368,12 @@ export default function MenuScreen() {
       {/* Header Bar */}
       <View style={styles.headerRow}>
         <View>
-          <ThemedText style={styles.headerTitle}>SkolaCloud Hub</ThemedText>
-          <ThemedText style={styles.headerSub}>All Administrative Modules & Tools</ThemedText>
+          <ThemedText style={styles.headerTitle}>
+            {isTeacher ? 'Teacher Hub' : 'SkolaCloud Hub'}
+          </ThemedText>
+          <ThemedText style={styles.headerSub}>
+            {isTeacher ? 'Classroom & Teaching Management Tools' : 'All Administrative Modules & Tools'}
+          </ThemedText>
         </View>
         <TouchableOpacity
           style={styles.openDrawerBtn}
@@ -295,12 +428,16 @@ export default function MenuScreen() {
           >
             <View style={styles.avatarCircle}>
               <ThemedText style={styles.avatarText}>
-                {(user?.firstName || user?.email || 'A').charAt(0).toUpperCase()}
+                {(user?.firstName || user?.email || (isTeacher ? 'T' : 'A')).charAt(0).toUpperCase()}
               </ThemedText>
             </View>
             <View style={{ flex: 1 }}>
-              <ThemedText style={styles.userName}>{user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Admin Account'}</ThemedText>
-              <ThemedText style={styles.userRole}>{(user?.role || 'Administrator').toUpperCase()}</ThemedText>
+              <ThemedText style={styles.userName}>
+                {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : (isTeacher ? 'Teacher Account' : 'Admin Account')}
+              </ThemedText>
+              <ThemedText style={styles.userRole}>
+                {(user?.role || (isTeacher ? 'Teacher' : 'Administrator')).toUpperCase()}
+              </ThemedText>
             </View>
             <Settings size={20} color="#94a3b8" />
           </TouchableOpacity>
@@ -328,8 +465,12 @@ export default function MenuScreen() {
                   <ShieldCheck size={20} color="#38bdf8" />
                 </View>
                 <View>
-                  <ThemedText style={styles.drawerTitle}>Admin Navigation</ThemedText>
-                  <ThemedText style={styles.drawerSub}>School Management Suite</ThemedText>
+                  <ThemedText style={styles.drawerTitle}>
+                    {isTeacher ? 'Teacher Navigation' : 'Admin Navigation'}
+                  </ThemedText>
+                  <ThemedText style={styles.drawerSub}>
+                    {isTeacher ? 'My Teaching Suite' : 'School Management Suite'}
+                  </ThemedText>
                 </View>
               </View>
               <TouchableOpacity onPress={() => setDrawerOpen(false)}>

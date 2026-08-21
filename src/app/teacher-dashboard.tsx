@@ -1,34 +1,31 @@
-import React from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 import {
-  StyleSheet,
-  View,
-  ScrollView,
-  TouchableOpacity,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  FileSpreadsheet,
+  GraduationCap,
+  LogOut,
+  Play,
+  School as SchoolIcon,
+  Square
+} from 'lucide-react-native';
+import {
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  School as SchoolIcon,
-  LogOut,
-  GraduationCap,
-  Clock,
-  Calendar,
-  Building2,
-  FileSpreadsheet,
-  CheckCircle2,
-  Play,
-  Square,
-  Users,
-} from 'lucide-react-native';
-import { useRouter } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as Location from 'expo-location';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { apiClient } from '@/lib/api-client';
 
@@ -50,7 +47,7 @@ export default function TeacherDashboard() {
   const queryClient = useQueryClient();
 
   const userDisplayName = user?.name || user?.fullName || 'Teacher';
-  const schoolName = (user as any)?.schoolName || 'SkolaCloud Academy';
+  const schoolName = (user as any)?.schoolName || 'SkolaCloud';
 
   const currentDateStr = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
