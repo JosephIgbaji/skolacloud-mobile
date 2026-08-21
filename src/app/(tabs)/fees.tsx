@@ -153,8 +153,22 @@ export default function FeesScreen() {
       if (selectedClassId && selectedClassId !== 'all') {
         params.classId = selectedClassId;
       }
-      const res = await apiClient.get('/reports/fees', { params });
-      return res.data;
+
+      const [summaryRes, debtorsRes] = await Promise.all([
+        apiClient.get('/reports/fees-summary', { params: { sessionId: selectedSessionId, termId: selectedTermId } }).catch(() => ({ data: {} })),
+        apiClient.get('/reports/outstanding-fees', { params: { ...params, limit: 1000 } }).catch(() => ({ data: {} })),
+      ]);
+
+      const summary = summaryRes.data || {};
+      const debtorsData = debtorsRes.data || {};
+      const debtors = Array.isArray(debtorsData) ? debtorsData : (debtorsData.data || []);
+
+      return {
+        totalExpected: summary.expectedFees || 0,
+        totalCollected: summary.paidFees || 0,
+        totalOutstanding: summary.outstandingFees || 0,
+        debtors,
+      };
     },
   });
 

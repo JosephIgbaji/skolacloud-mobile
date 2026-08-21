@@ -1,8 +1,13 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Home, Users, CreditCard, Clock, Menu } from 'lucide-react-native';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function TabsLayout() {
+  const { user } = useAuth();
+  const role = (user?.role || '').toLowerCase();
+  const isTeacher = role === 'teacher';
+
   return (
     <Tabs
       screenOptions={{
@@ -33,7 +38,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="students"
         options={{
-          title: 'Students',
+          title: isTeacher ? 'My Class' : 'Students',
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
         }}
       />
@@ -42,6 +47,7 @@ export default function TabsLayout() {
         options={{
           title: 'Fees',
           tabBarIcon: ({ color, size }) => <CreditCard size={size} color={color} />,
+          href: isTeacher ? null : undefined, // Hide Fees tab for Teachers
         }}
       />
       <Tabs.Screen

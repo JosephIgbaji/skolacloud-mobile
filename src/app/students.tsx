@@ -1,16 +1,16 @@
 import React from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import TeacherResultsScreen from './teacher-results';
-import AdminResultsScreen from './admin-results';
+import TeacherStudentsScreen from './teacher-students';
+import AdminStudentsScreen from './admin-students';
 
-export default function ResultsScreen() {
+export default function StudentsScreen() {
   const { user } = useAuth();
   const role = (user?.role || 'student').toLowerCase();
   const isTeacher = role === 'teacher';
 
   if (isTeacher) {
-    return <TeacherResultsScreen />;
+    return <TeacherStudentsScreen />;
   }
 
-  return <AdminResultsScreen />;
+  return <AdminStudentsScreen />;
 }
