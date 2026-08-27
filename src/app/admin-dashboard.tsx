@@ -10,7 +10,8 @@ import {
   LogOut,
   Play,
   School as SchoolIcon,
-  Square
+  Square,
+  Briefcase,
 } from 'lucide-react-native';
 import {
   ActivityIndicator,
@@ -117,12 +118,13 @@ export default function AdminDashboard() {
     },
   });
 
-  // Admin Dashboard Overview Stats
+  // Admin Dashboard Overview Stats Query
   const { data: dashboardData } = useQuery({
     queryKey: ['admin-dashboard-stats-overview'],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/admin/dashboard/stats').catch(() => null);
+        let res = await apiClient.get('/admin/analytics/dashboard').catch(() => null);
+        if (!res?.data) res = await apiClient.get('/admin/dashboard/stats').catch(() => null);
         return res?.data || null;
       } catch {
         return null;
@@ -131,12 +133,53 @@ export default function AdminDashboard() {
   });
 
   // Fallback Students Count Query
-  const { data: fallbackStudentsCount } = useQuery({
+  const { data: fallbackStudentsCount = 0 } = useQuery({
     queryKey: ['admin-fallback-students-count'],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/admin/students', { params: { limit: 1 } });
-        return res?.data?.total || res?.data?.length || 0;
+        let res = await apiClient.get('/admin/students', { params: { limit: 1 } }).catch(() => null);
+        if (!res?.data) res = await apiClient.get('/students', { params: { limit: 1 } }).catch(() => null);
+        const raw = res?.data;
+        if (typeof raw?.total === 'number') return raw.total;
+        if (Array.isArray(raw)) return raw.length;
+        if (Array.isArray(raw?.data)) return raw.data.length;
+        return 0;
+      } catch {
+        return 0;
+      }
+    },
+  });
+
+  // Fallback Teachers Count Query
+  const { data: fallbackTeachersCount = 0 } = useQuery({
+    queryKey: ['admin-fallback-teachers-count'],
+    queryFn: async () => {
+      try {
+        let res = await apiClient.get('/admin/teachers').catch(() => null);
+        if (!res?.data) res = await apiClient.get('/users', { params: { role: 'teacher' } }).catch(() => null);
+        const raw = res?.data;
+        if (typeof raw?.total === 'number') return raw.total;
+        if (Array.isArray(raw)) return raw.length;
+        if (Array.isArray(raw?.data)) return raw.data.length;
+        return 0;
+      } catch {
+        return 0;
+      }
+    },
+  });
+
+  // Fallback Classes Count Query
+  const { data: fallbackClassesCount = 0 } = useQuery({
+    queryKey: ['admin-fallback-classes-count'],
+    queryFn: async () => {
+      try {
+        let res = await apiClient.get('/admin/classes').catch(() => null);
+        if (!res?.data) res = await apiClient.get('/classes').catch(() => null);
+        const raw = res?.data;
+        if (typeof raw?.total === 'number') return raw.total;
+        if (Array.isArray(raw)) return raw.length;
+        if (Array.isArray(raw?.data)) return raw.data.length;
+        return 0;
       } catch {
         return 0;
       }
@@ -158,7 +201,9 @@ export default function AdminDashboard() {
     },
   });
 
-  const studentCount = dashboardData?.students || fallbackStudentsCount || 0;
+  const studentCount = typeof dashboardData?.students === 'number' ? dashboardData.students : (fallbackStudentsCount || 0);
+  const teacherCount = typeof dashboardData?.teachers === 'number' ? dashboardData.teachers : (fallbackTeachersCount || 0);
+  const classCount = typeof dashboardData?.classes === 'number' ? dashboardData.classes : (fallbackClassesCount || 0);
   const isClockedIn = staffShiftStatus?.clockedIn;
   const isClockedOut = staffShiftStatus?.clockedOut;
 
@@ -207,7 +252,7 @@ export default function AdminDashboard() {
 
             <View style={styles.metricItem}>
               <ThemedText style={[styles.metricValue, { color: '#facc15' }]}>
-                {dashboardData?.teachers ?? 0}
+                {teacherCount}
               </ThemedText>
               <ThemedText style={styles.metricLabel}>Teachers</ThemedText>
             </View>
@@ -216,7 +261,7 @@ export default function AdminDashboard() {
 
             <View style={styles.metricItem}>
               <ThemedText style={[styles.metricValue, { color: '#4ade80' }]}>
-                {dashboardData?.classes ?? 1}
+                {classCount}
               </ThemedText>
               <ThemedText style={styles.metricLabel}>Classes</ThemedText>
             </View>
@@ -400,6 +445,15 @@ export default function AdminDashboard() {
               </View>
               <ThemedText style={styles.gridTitle}>Timetable</ThemedText>
               <ThemedText style={styles.gridSub}>Master Schedule Builder</ThemedText>
+            </TouchableOpacity>
+
+            {/* Leave Management */}
+            <TouchableOpacity style={styles.gridCard} onPress={() => router.push('/admin-leave-management')}>
+              <View style={[styles.gridIconBox, { backgroundColor: 'rgba(244, 114, 182, 0.15)' }]}>
+                <Briefcase size={22} color="#f472b6" />
+              </View>
+              <ThemedText style={styles.gridTitle}>Leave Setup</ThemedText>
+              <ThemedText style={styles.gridSub}>Approvals & Policies</ThemedText>
             </TouchableOpacity>
           </View>
         </View>

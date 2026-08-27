@@ -23,6 +23,23 @@ import { ThemedView } from '@/components/themed-view';
 import { Badge } from '@/components/ui/badge';
 import { apiClient } from '@/lib/api-client';
 
+function formatClassLabel(cls: any): string {
+  if (!cls) return 'Class';
+  const name = typeof cls === 'string' ? cls : (cls.name || '').trim();
+  const grade = (cls.grade || cls.gradeLevel || cls.classGroup || cls.group || '').trim();
+
+  if (!grade) return name || 'Class';
+  if (!name) return grade;
+
+  if (name.toLowerCase().includes(grade.toLowerCase())) {
+    return name;
+  }
+  if (name.length <= 3) {
+    return `${grade} ${name}`;
+  }
+  return `${grade} (${name})`;
+}
+
 export default function AdminClassesScreen() {
   const router = useRouter();
 
@@ -81,7 +98,7 @@ export default function AdminClassesScreen() {
                   </View>
 
                   <View style={{ flex: 1, gap: 4 }}>
-                    <ThemedText style={styles.className}>{cls.name}</ThemedText>
+                    <ThemedText style={styles.className}>{formatClassLabel(cls)}</ThemedText>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <UserCheck size={12} color="#94a3b8" />
                       <ThemedText style={styles.subText}>Teacher: {teacherName}</ThemedText>

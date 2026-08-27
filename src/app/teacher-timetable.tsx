@@ -29,6 +29,23 @@ import { useAuth } from '@/hooks/use-auth';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
+function formatClassLabel(cls: any): string {
+  if (!cls) return 'Class';
+  const name = typeof cls === 'string' ? cls : (cls.name || '').trim();
+  const grade = (cls.grade || cls.gradeLevel || cls.classGroup || cls.group || '').trim();
+
+  if (!grade) return name || 'Class';
+  if (!name) return grade;
+
+  if (name.toLowerCase().includes(grade.toLowerCase())) {
+    return name;
+  }
+  if (name.length <= 3) {
+    return `${grade} ${name}`;
+  }
+  return `${grade} (${name})`;
+}
+
 export default function TeacherTimetableScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -163,7 +180,7 @@ export default function TeacherTimetableScreen() {
                   onPress={() => setSelectedClassId(cId)}
                 >
                   <ThemedText style={[styles.classPillText, isSel && styles.classPillTextActive]}>
-                    {cls.name} {cls.grade ? `(${cls.grade})` : ''}
+                    {formatClassLabel(cls)}
                   </ThemedText>
                 </TouchableOpacity>
               );
@@ -199,9 +216,7 @@ export default function TeacherTimetableScreen() {
             <Calendar size={18} color="#38bdf8" />
             <ThemedText style={styles.summaryTitle}>{selectedDay} Roster</ThemedText>
           </View>
-          <Badge variant="outline" style={styles.countBadge}>
-            <ThemedText style={styles.countBadgeText}>{timetableSlots.length} Periods</ThemedText>
-          </Badge>
+          <Badge label={`${timetableSlots.length} Periods`} variant="info" />
         </View>
 
         {/* Period Slots List */}
@@ -247,9 +262,7 @@ export default function TeacherTimetableScreen() {
                   <View style={styles.slotDetails}>
                     <View style={styles.slotHeaderRow}>
                       <ThemedText style={styles.subjectName}>{subjectName}</ThemedText>
-                      <Badge style={styles.periodPill}>
-                        <ThemedText style={styles.periodPillText}>Period {idx + 1}</ThemedText>
-                      </Badge>
+                      <Badge label={`Period ${idx + 1}`} variant="neutral" />
                     </View>
 
                     <View style={styles.metaRow}>

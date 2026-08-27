@@ -39,6 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { DatePickerField } from '@/components/ui/date-picker-field';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
+import ParentFeesScreen from '../parent-fees';
 
 export default function FeesScreen() {
   const router = useRouter();
@@ -46,6 +47,10 @@ export default function FeesScreen() {
   const queryClient = useQueryClient();
 
   const rawRole = (user?.role || 'student').toLowerCase();
+  if (rawRole === 'parent') {
+    return <ParentFeesScreen />;
+  }
+
   const isAdminOrAccountant = rawRole === 'admin' || rawRole === 'super_admin' || rawRole === 'superadmin' || rawRole === 'accountant';
 
   // Active Tab: 'billing' | 'structures'

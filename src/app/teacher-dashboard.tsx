@@ -10,7 +10,8 @@ import {
   LogOut,
   Play,
   School as SchoolIcon,
-  Square
+  Square,
+  Briefcase,
 } from 'lucide-react-native';
 import {
   ActivityIndicator,
@@ -358,6 +359,15 @@ export default function TeacherDashboard() {
               </View>
               <ThemedText style={styles.gridTitle}>Timetable</ThemedText>
               <ThemedText style={styles.gridSub}>My Daily Schedule</ThemedText>
+            </TouchableOpacity>
+
+            {/* Leave Applications */}
+            <TouchableOpacity style={styles.gridCard} onPress={() => router.push('/teacher-leave')}>
+              <View style={[styles.gridIconBox, { backgroundColor: 'rgba(244, 114, 182, 0.15)' }]}>
+                <Briefcase size={22} color="#f472b6" />
+              </View>
+              <ThemedText style={styles.gridTitle}>Leave Portal</ThemedText>
+              <ThemedText style={styles.gridSub}>Balances & Requests</ThemedText>
             </TouchableOpacity>
           </View>
         </View>

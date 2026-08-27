@@ -36,7 +36,7 @@ import { DatePickerField } from '@/components/ui/date-picker-field';
 import { useAuth } from '@/hooks/use-auth';
 import { apiClient } from '@/lib/api-client';
 
-type AttendanceStatus = 'present' | 'absent' | 'late';
+type AttendanceStatus = 'present' | 'absent' | 'late' | 'unmarked';
 
 interface StudentAttendanceRecord {
   studentId: string;
@@ -68,6 +68,13 @@ function formatClassLabel(cls: any): string {
   return `${grade} ${name}`;
 }
 
+function getLocalIsoDate(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function TeacherStudentAttendanceScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -76,8 +83,8 @@ export default function TeacherStudentAttendanceScreen() {
   const userRole = (user?.role || 'teacher').toLowerCase();
   const isAdmin = userRole.includes('admin') || userRole === 'superadmin';
 
-  // Date State (Defaults to Today YYYY-MM-DD)
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Date State (Defaults to Today YYYY-MM-DD in Local Time)
+  const todayStr = useMemo(() => getLocalIsoDate(), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
   // Active Class Filter
@@ -96,7 +103,7 @@ export default function TeacherStudentAttendanceScreen() {
     for (let i = 0; i < 7; i++) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLocalIsoDate(d);
       const isToday = i === 0;
       const isYesterday = i === 1;
 
@@ -174,7 +181,9 @@ export default function TeacherStudentAttendanceScreen() {
   });
 
   const isAttendanceSubmitted = existingAttendance.length > 0;
-  const isLocked = isAttendanceSubmitted && !isAdmin;
+  const isPastDate = selectedDate < todayStr;
+  const isFutureDate = selectedDate > todayStr;
+  const isLocked = (isAttendanceSubmitted || isPastDate || isFutureDate) && !isAdmin;
 
   const studentsList = useMemo(() => {
     const data = studentsResponse;
@@ -199,8 +208,10 @@ export default function TeacherStudentAttendanceScreen() {
             remark: found.remark || '',
           };
         } else {
+          // If attendance was never submitted for this date (e.g. past date with no records), mark as 'unmarked'
+          const defaultStatus: AttendanceStatus = isAttendanceSubmitted || !isPastDate ? 'present' : 'unmarked';
           map[stId] = {
-            status: 'present',
+            status: defaultStatus,
             remark: '',
           };
         }
@@ -209,7 +220,7 @@ export default function TeacherStudentAttendanceScreen() {
       setAttendanceRecords(map);
       setHasChanges(false);
     }
-  }, [studentsList, existingAttendance]);
+  }, [studentsList, existingAttendance, isAttendanceSubmitted, isPastDate]);
 
   // Filter students based on search query
   const filteredStudents = useMemo(() => {
@@ -226,11 +237,13 @@ export default function TeacherStudentAttendanceScreen() {
     let present = 0;
     let absent = 0;
     let late = 0;
+    let unmarked = 0;
 
     Object.values(attendanceRecords).forEach((rec) => {
       if (rec.status === 'present') present++;
       else if (rec.status === 'absent') absent++;
       else if (rec.status === 'late') late++;
+      else unmarked++;
     });
 
     return {
@@ -238,13 +251,33 @@ export default function TeacherStudentAttendanceScreen() {
       present,
       absent,
       late,
+      unmarked,
     };
   }, [attendanceRecords, studentsList]);
+
+  const showLockAlert = () => {
+    if (isPastDate) {
+      Alert.alert(
+        'Past Date Locked 🔒',
+        'Teachers cannot mark or modify student attendance for past dates. Contact a School Administrator to update past records.'
+      );
+    } else if (isFutureDate) {
+      Alert.alert(
+        'Future Date Locked 🔒',
+        'Attendance cannot be marked for future dates.'
+      );
+    } else {
+      Alert.alert(
+        'Roll Call Saved & Locked 🔒',
+        'Attendance for today has already been saved and locked. Only a School Administrator can alter locked records.'
+      );
+    }
+  };
 
   // Status Toggle Handler
   const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
     if (isLocked) {
-      Alert.alert('Roll Call Locked', 'Attendance for this date has been saved and locked. Only an Administrator can alter locked records.');
+      showLockAlert();
       return;
     }
     setAttendanceRecords((prev) => ({
@@ -260,7 +293,7 @@ export default function TeacherStudentAttendanceScreen() {
   // Batch Action: Mark All Present
   const handleMarkAllPresent = () => {
     if (isLocked) {
-      Alert.alert('Roll Call Locked', 'Attendance for this date has been saved and locked. Contact an Administrator to modify records.');
+      showLockAlert();
       return;
     }
     setAttendanceRecords((prev) => {
@@ -276,7 +309,7 @@ export default function TeacherStudentAttendanceScreen() {
   // Batch Action: Mark All Absent
   const handleMarkAllAbsent = () => {
     if (isLocked) {
-      Alert.alert('Roll Call Locked', 'Attendance for this date has been saved and locked. Contact an Administrator to modify records.');
+      showLockAlert();
       return;
     }
     setAttendanceRecords((prev) => {
@@ -372,12 +405,51 @@ export default function TeacherStudentAttendanceScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefetchingStudents || isFetchingExistingAttendance} onRefresh={refetchStudents} tintColor="#38bdf8" />}
       >
-        {/* Immutability Banner: Roll Call Locked for Teachers */}
-        {isLocked && (
+        {/* Immutability Banner: Past Date - No Attendance Recorded */}
+        {isPastDate && !isAttendanceSubmitted && (
+          <View style={styles.warningBanner}>
+            <CalendarIcon size={18} color="#fbbf24" style={{ marginRight: 8 }} />
+            <View style={{ flex: 1 }}>
+              <ThemedText style={styles.warningBannerTitle}>No Attendance Recorded ⚠️</ThemedText>
+              <ThemedText style={styles.warningBannerSub}>
+                No roll call attendance was taken for {selectedClassName} on {formattedSelectedDate}. Past date attendance cannot be marked by teachers.
+              </ThemedText>
+            </View>
+          </View>
+        )}
+
+        {/* Immutability Banner: Past Date - Attendance WAS Recorded & Locked */}
+        {isPastDate && isAttendanceSubmitted && !isAdmin && (
           <View style={styles.lockBanner}>
             <Lock size={18} color="#f87171" style={{ marginRight: 8 }} />
             <View style={{ flex: 1 }}>
-              <ThemedText style={styles.lockBannerTitle}>Attendance Roll Call Locked</ThemedText>
+              <ThemedText style={styles.lockBannerTitle}>Past Date Attendance Record (Locked) 🔒</ThemedText>
+              <ThemedText style={styles.lockBannerSub}>
+                Showing saved attendance record for {selectedClassName} on {formattedSelectedDate}. Roll call for past dates is locked.
+              </ThemedText>
+            </View>
+          </View>
+        )}
+
+        {/* Immutability Banner: Future Date Attendance Locked */}
+        {isFutureDate && !isAdmin && (
+          <View style={styles.lockBanner}>
+            <Lock size={18} color="#f87171" style={{ marginRight: 8 }} />
+            <View style={{ flex: 1 }}>
+              <ThemedText style={styles.lockBannerTitle}>Future Date Attendance Locked 🔒</ThemedText>
+              <ThemedText style={styles.lockBannerSub}>
+                Attendance cannot be marked for future dates ({formattedSelectedDate}).
+              </ThemedText>
+            </View>
+          </View>
+        )}
+
+        {/* Immutability Banner: Today's Roll Call Saved & Locked for Teachers */}
+        {!isPastDate && !isFutureDate && isAttendanceSubmitted && !isAdmin && (
+          <View style={styles.lockBanner}>
+            <Lock size={18} color="#f87171" style={{ marginRight: 8 }} />
+            <View style={{ flex: 1 }}>
+              <ThemedText style={styles.lockBannerTitle}>Attendance Roll Call Locked 🔒</ThemedText>
               <ThemedText style={styles.lockBannerSub}>
                 Attendance for {selectedClassName} on {formattedSelectedDate} has already been saved and locked.
               </ThemedText>
@@ -390,9 +462,9 @@ export default function TeacherStudentAttendanceScreen() {
           <View style={styles.adminBanner}>
             <ShieldAlert size={18} color="#4ade80" style={{ marginRight: 8 }} />
             <View style={{ flex: 1 }}>
-              <ThemedText style={styles.adminBannerTitle}>Administrator Override Unlocked</ThemedText>
+              <ThemedText style={styles.adminBannerTitle}>Administrator Override Unlocked 🔓</ThemedText>
               <ThemedText style={styles.adminBannerSub}>
-                As a School Administrator, you have authorization to modify this locked attendance record.
+                As a School Administrator, you have authorization to modify attendance records for any date.
               </ThemedText>
             </View>
           </View>
@@ -484,10 +556,17 @@ export default function TeacherStudentAttendanceScreen() {
             <ThemedText style={[styles.summaryNum, { color: '#f87171' }]}>{metrics.absent}</ThemedText>
             <ThemedText style={styles.summaryLabel}>Absent</ThemedText>
           </View>
-          <View style={[styles.summaryCard, { borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
-            <ThemedText style={[styles.summaryNum, { color: '#fbbf24' }]}>{metrics.late}</ThemedText>
-            <ThemedText style={styles.summaryLabel}>Late</ThemedText>
-          </View>
+          {metrics.unmarked > 0 ? (
+            <View style={[styles.summaryCard, { borderColor: 'rgba(148, 163, 184, 0.3)' }]}>
+              <ThemedText style={[styles.summaryNum, { color: '#94a3b8' }]}>{metrics.unmarked}</ThemedText>
+              <ThemedText style={styles.summaryLabel}>Not Taken</ThemedText>
+            </View>
+          ) : (
+            <View style={[styles.summaryCard, { borderColor: 'rgba(251, 191, 36, 0.3)' }]}>
+              <ThemedText style={[styles.summaryNum, { color: '#fbbf24' }]}>{metrics.late}</ThemedText>
+              <ThemedText style={styles.summaryLabel}>Late</ThemedText>
+            </View>
+          )}
         </View>
 
         {/* Batch Actions Bar */}
@@ -538,7 +617,7 @@ export default function TeacherStudentAttendanceScreen() {
               const stId = (st._id || st.id).toString();
               const name = st.fullName || st.name || `${st.firstName || ''} ${st.lastName || ''}`;
               const adm = st.admissionNumber || st.regNumber || 'N/A';
-              const currentRec = attendanceRecords[stId] || { status: 'present', remark: '' };
+              const currentRec = attendanceRecords[stId] || { status: 'unmarked', remark: '' };
 
               return (
                 <ThemedView key={stId} style={styles.rollCallCard}>
@@ -555,13 +634,23 @@ export default function TeacherStudentAttendanceScreen() {
                     </View>
 
                     <Badge
-                      label={currentRec.status.toUpperCase()}
+                      label={
+                        currentRec.status === 'present'
+                          ? 'PRESENT'
+                          : currentRec.status === 'absent'
+                            ? 'ABSENT'
+                            : currentRec.status === 'late'
+                              ? 'LATE'
+                              : 'NOT TAKEN'
+                      }
                       variant={
                         currentRec.status === 'present'
                           ? 'success'
                           : currentRec.status === 'absent'
                             ? 'danger'
-                            : 'warning'
+                            : currentRec.status === 'late'
+                              ? 'warning'
+                              : 'neutral'
                       }
                       size="sm"
                     />
@@ -666,6 +755,18 @@ const styles = StyleSheet.create({
   },
   lockBannerTitle: { fontSize: 13, fontWeight: 'bold', color: '#f87171' },
   lockBannerSub: { fontSize: 11, color: '#94a3b8', marginTop: 2, lineHeight: 16 },
+
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: 14,
+    padding: 14,
+  },
+  warningBannerTitle: { fontSize: 13, fontWeight: 'bold', color: '#fbbf24' },
+  warningBannerSub: { fontSize: 11, color: '#94a3b8', marginTop: 2, lineHeight: 16 },
 
   adminBanner: {
     flexDirection: 'row',

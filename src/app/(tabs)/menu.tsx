@@ -60,8 +60,74 @@ export default function MenuScreen() {
 
   const rawRole = (user?.role || 'admin').toLowerCase();
   const isTeacher = rawRole === 'teacher';
+  const isParent = rawRole === 'parent';
 
-  const categories: NavCategory[] = isTeacher
+  const parentCategories: NavCategory[] = [
+    {
+      title: 'MY WARDS & ACADEMICS',
+      items: [
+        {
+          id: 'parent-children',
+          title: 'My Children',
+          subtitle: 'View linked wards & class teacher contact',
+          icon: Users,
+          color: '#38bdf8',
+          bgColor: 'rgba(56, 189, 248, 0.12)',
+          route: '/parent-children',
+        },
+        {
+          id: 'parent-attendance',
+          title: 'Attendance Log',
+          subtitle: 'View daily roll call presence log',
+          icon: UserCheck,
+          color: '#4ade80',
+          bgColor: 'rgba(74, 222, 128, 0.12)',
+          route: '/parent-attendance',
+        },
+        {
+          id: 'parent-results',
+          title: 'Report Cards & Results',
+          subtitle: 'View term grades & Form Master remarks',
+          icon: FileText,
+          color: '#facc15',
+          bgColor: 'rgba(250, 204, 21, 0.12)',
+          route: '/parent-results',
+        },
+      ],
+    },
+    {
+      title: 'FINANCE & FEES',
+      items: [
+        {
+          id: 'parent-fees',
+          title: 'School Fees & Invoices',
+          subtitle: 'Fee statements & pay online',
+          icon: DollarSign,
+          color: '#c084fc',
+          bgColor: 'rgba(192, 132, 252, 0.12)',
+          route: '/parent-fees',
+        },
+      ],
+    },
+    {
+      title: 'COMMUNICATION',
+      items: [
+        {
+          id: 'notifications',
+          title: 'School Announcements',
+          subtitle: 'App notices & broadcast SMS',
+          icon: Bell,
+          color: '#f472b6',
+          bgColor: 'rgba(244, 114, 182, 0.12)',
+          route: '/notifications',
+        },
+      ],
+    },
+  ];
+
+  const categories: NavCategory[] = isParent
+    ? parentCategories
+    : isTeacher
     ? [
         {
           title: 'TEACHING & CLASSROOM',
@@ -145,6 +211,16 @@ export default function MenuScreen() {
               badge: 'HRM',
             },
             {
+              id: 'teacher-leave',
+              title: 'Staff Leave Portal',
+              subtitle: 'Apply for leave & check remaining balances',
+              icon: Briefcase,
+              color: '#f472b6',
+              bgColor: 'rgba(244, 114, 182, 0.12)',
+              route: '/teacher-leave',
+              badge: 'LEAVE',
+            },
+            {
               id: 'notifications',
               title: 'Broadcast Announcements',
               subtitle: 'Push SMS, Email & App notices',
@@ -220,6 +296,16 @@ export default function MenuScreen() {
               bgColor: 'rgba(74, 222, 128, 0.12)',
               route: '/staff-attendance',
               badge: 'HRM',
+            },
+            {
+              id: 'admin-leave-management',
+              title: 'Leave Approvals & Setup',
+              subtitle: 'Approve staff leave & configure policies',
+              icon: Briefcase,
+              color: '#f472b6',
+              bgColor: 'rgba(244, 114, 182, 0.12)',
+              route: '/admin-leave-management',
+              badge: 'LEAVE',
             },
           ],
         },
