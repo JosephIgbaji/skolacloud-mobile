@@ -7,6 +7,7 @@ export default function TabsLayout() {
   const { user } = useAuth();
   const role = (user?.role || '').toLowerCase();
   const isTeacher = role === 'teacher';
+  const isParent = role === 'parent';
 
   return (
     <Tabs
@@ -40,6 +41,7 @@ export default function TabsLayout() {
         options={{
           title: isTeacher ? 'My Class' : 'Students',
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+          href: isParent ? null : undefined, // Hide Students tab for Parents
         }}
       />
       <Tabs.Screen
@@ -55,6 +57,7 @@ export default function TabsLayout() {
         options={{
           title: 'Attendance',
           tabBarIcon: ({ color, size }) => <Clock size={size} color={color} />,
+          href: isParent ? null : undefined, // Hide Attendance tab for Parents
         }}
       />
       <Tabs.Screen

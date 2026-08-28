@@ -127,12 +127,14 @@ export default function ParentDashboard() {
 
   // Attendance rate & today status
   const attendanceMetrics = useMemo(() => {
-    if (childAttendance.length === 0) return { presentRate: 100, todayStatus: 'PRESENT' };
+    if (childAttendance.length === 0) return { presentRate: 0, todayStatus: 'UNMARKED' };
     const presentCount = childAttendance.filter((a: any) => a.status === 'present').length;
     const rate = Math.round((presentCount / childAttendance.length) * 100);
-    const todayLog = childAttendance[0];
-    const status = todayLog ? (todayLog.status || 'present').toUpperCase() : 'PRESENT';
-    return { presentRate: rate, todayStatus: status };
+
+    const latestLog = childAttendance[0];
+    const todayStatus = latestLog?.status ? (latestLog.status || 'present').toUpperCase() : 'UNMARKED';
+
+    return { presentRate: rate, todayStatus };
   }, [childAttendance]);
 
   return (

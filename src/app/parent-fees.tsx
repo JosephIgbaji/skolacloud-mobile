@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -19,6 +20,8 @@ import {
   Building2,
   Copy,
   Receipt,
+  Sparkles,
+  X,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -26,6 +29,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/use-auth';
 import { apiClient } from '@/lib/api-client';
 
 function formatClassLabel(cls: any): string {
@@ -47,8 +51,28 @@ function formatClassLabel(cls: any): string {
 
 export default function ParentFeesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const schoolName = (user as any)?.schoolName || (user as any)?.school?.name || 'SkolaCloud Academy';
 
   const [selectedChildId, setSelectedChildId] = useState<string>('');
+  const [showComingSoonModal, setShowComingSoonModal] = useState<boolean>(false);
+
+  // 0. Fetch School Info & Bank Account Details
+  const { data: schoolData } = useQuery({
+    queryKey: ['parent-school-bank-details'],
+    queryFn: async () => {
+      try {
+        let res = await apiClient.get('/schools/my-school').catch(() => null);
+        return res?.data || null;
+      } catch {
+        return null;
+      }
+    },
+  });
+
+  const officialBankName = schoolData?.bankName || 'Contact Administration';
+  const officialAccountName = schoolData?.accountName || schoolName || 'SkolaCloud School Fees';
+  const officialAccountNumber = schoolData?.accountNumber || 'N/A';
 
   // 1. Fetch Children
   const { data: childrenList = [] } = useQuery({
@@ -221,17 +245,11 @@ export default function ParentFeesScreen() {
             </View>
 
             <TouchableOpacity
-              style={[
-                styles.payOnlineBtn,
-                initializePaymentMutation.isPending && { opacity: 0.5 },
-              ]}
-              disabled={initializePaymentMutation.isPending}
-              onPress={() => initializePaymentMutation.mutate()}
+              style={styles.payOnlineBtn}
+              onPress={() => setShowComingSoonModal(true)}
             >
               <CreditCard size={16} color="#ffffff" />
-              <ThemedText style={styles.payOnlineBtnText}>
-                {initializePaymentMutation.isPending ? 'Generating...' : 'PAY ONLINE'}
-              </ThemedText>
+              <ThemedText style={styles.payOnlineBtnText}>PAY ONLINE</ThemedText>
             </TouchableOpacity>
           </View>
 
@@ -246,6 +264,47 @@ export default function ParentFeesScreen() {
             <View style={styles.metricItem}>
               <ThemedText style={[styles.metricVal, { color: '#4ade80' }]}>₦{financialSummary.amountPaid.toLocaleString()}</ThemedText>
               <ThemedText style={styles.metricLabel}>Total Paid</ThemedText>
+            </View>
+          </View>
+        </ThemedView>
+
+        {/* Direct Bank Transfer Account Card */}
+        <ThemedView style={styles.bankAccountCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Building2 size={20} color="#38bdf8" />
+            <View style={{ flex: 1 }}>
+              <ThemedText style={{ fontSize: 13, fontWeight: 'bold', color: '#f8fafc' }}>
+                Official School Bank Account
+              </ThemedText>
+              <ThemedText style={{ fontSize: 11, color: '#94a3b8' }}>
+                Transfer fees directly & present transaction receipt
+              </ThemedText>
+            </View>
+          </View>
+
+          <View style={styles.bankDetailsBox}>
+            <View style={styles.bankDetailRow}>
+              <ThemedText style={styles.bankLabel}>Bank Name:</ThemedText>
+              <ThemedText style={styles.bankVal}>{officialBankName}</ThemedText>
+            </View>
+            <View style={styles.bankDetailRow}>
+              <ThemedText style={styles.bankLabel}>Account Name:</ThemedText>
+              <ThemedText style={styles.bankVal}>{officialAccountName}</ThemedText>
+            </View>
+            <View style={styles.bankDetailRow}>
+              <ThemedText style={styles.bankLabel}>Account No:</ThemedText>
+              <ThemedText style={[styles.bankVal, { color: '#38bdf8', fontWeight: 'bold' }]}>
+                {officialAccountNumber}
+              </ThemedText>
+              {officialAccountNumber !== 'N/A' && (
+                <TouchableOpacity
+                  style={styles.copyBtn}
+                  onPress={() => Alert.alert('Copied 📋', `Account Number ${officialAccountNumber} copied to clipboard.`)}
+                >
+                  <Copy size={13} color="#38bdf8" />
+                  <ThemedText style={styles.copyBtnText}>Copy</ThemedText>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </ThemedView>
@@ -323,6 +382,37 @@ export default function ParentFeesScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* PAY ONLINE COMING SOON MODAL */}
+      <Modal visible={showComingSoonModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <ThemedView style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalIconGlow}>
+                <CreditCard size={24} color="#38bdf8" />
+              </View>
+              <TouchableOpacity onPress={() => setShowComingSoonModal(false)}>
+                <X size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            <ThemedText style={styles.modalTitleText}>Online Card Payments Coming Soon 💳</ThemedText>
+            <ThemedText style={styles.modalBodyText}>
+              Direct online debit card checkout and instant automated payment gateway reconciliation are launching in the upcoming release.
+            </ThemedText>
+            <ThemedText style={styles.modalSubNote}>
+              For now, please transfer your fee balance directly to the <ThemedText style={{ color: '#38bdf8', fontWeight: 'bold' }}>Official School Bank Account</ThemedText> details displayed below.
+            </ThemedText>
+
+            <TouchableOpacity
+              style={styles.modalDismissBtn}
+              onPress={() => setShowComingSoonModal(false)}
+            >
+              <ThemedText style={styles.modalDismissBtnText}>Got It, Thanks</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -368,6 +458,14 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 10, color: '#94a3b8' },
   metricDivider: { width: 1, height: 24, backgroundColor: '#334155' },
 
+  bankAccountCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#334155', gap: 10 },
+  bankDetailsBox: { backgroundColor: '#0f172a', borderRadius: 12, padding: 12, gap: 8, borderWidth: 1, borderColor: '#334155' },
+  bankDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bankLabel: { fontSize: 12, color: '#94a3b8', width: 95 },
+  bankVal: { fontSize: 12, fontWeight: '600', color: '#f8fafc', flex: 1 },
+  copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: 'rgba(56, 189, 248, 0.12)' },
+  copyBtnText: { fontSize: 11, color: '#38bdf8', fontWeight: 'bold' },
+
   sectionTitle: { fontSize: 11, fontWeight: 'bold', color: '#38bdf8', letterSpacing: 0.5 },
 
   feeItemCard: { backgroundColor: '#1e293b', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#334155' },
@@ -385,4 +483,14 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: '#1e293b', padding: 32, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   emptyTitle: { color: '#f8fafc', fontSize: 16, fontWeight: 'bold' },
   emptySub: { color: '#94a3b8', fontSize: 12, marginTop: 4, textAlign: 'center' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.85)', justifyContent: 'center', padding: 20 },
+  modalCard: { backgroundColor: '#1e293b', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#334155', gap: 14 },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalIconGlow: { width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(56, 189, 248, 0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)' },
+  modalTitleText: { fontSize: 18, fontWeight: 'bold', color: '#f8fafc' },
+  modalBodyText: { fontSize: 13, color: '#cbd5e1', lineHeight: 20 },
+  modalSubNote: { fontSize: 12, color: '#94a3b8', lineHeight: 18, backgroundColor: '#0f172a', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#334155' },
+  modalDismissBtn: { backgroundColor: '#0284c7', height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 4 },
+  modalDismissBtnText: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
 });

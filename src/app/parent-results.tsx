@@ -273,6 +273,29 @@ export default function ParentResultsScreen() {
                       </View>
                     </View>
 
+                    {/* Score Bar Breakdown */}
+                    <View style={{ gap: 6, marginVertical: 4 }}>
+                      <View style={{ gap: 2 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <ThemedText style={{ fontSize: 10, color: '#94a3b8' }}>CA Score ({ca}/40)</ThemedText>
+                          <ThemedText style={{ fontSize: 10, color: '#38bdf8', fontWeight: 'bold' }}>{Math.round((ca / 40) * 100)}%</ThemedText>
+                        </View>
+                        <View style={styles.miniBarBg}>
+                          <View style={[styles.miniBarFill, { width: `${Math.min(100, Math.max(0, (ca / 40) * 100))}%`, backgroundColor: '#38bdf8' }]} />
+                        </View>
+                      </View>
+
+                      <View style={{ gap: 2 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <ThemedText style={{ fontSize: 10, color: '#94a3b8' }}>Exam Score ({exam}/60)</ThemedText>
+                          <ThemedText style={{ fontSize: 10, color: '#c084fc', fontWeight: 'bold' }}>{Math.round((exam / 60) * 100)}%</ThemedText>
+                        </View>
+                        <View style={styles.miniBarBg}>
+                          <View style={[styles.miniBarFill, { width: `${Math.min(100, Math.max(0, (exam / 60) * 100))}%`, backgroundColor: '#c084fc' }]} />
+                        </View>
+                      </View>
+                    </View>
+
                     {remark && (
                       <ThemedText style={styles.subjectRemark}>Remark: "{remark}"</ThemedText>
                     )}
@@ -332,6 +355,8 @@ const styles = StyleSheet.create({
   subjectScoresText: { fontSize: 12, color: '#38bdf8', marginTop: 2 },
   totalScoreNum: { fontSize: 16, fontWeight: 'bold', color: '#f8fafc' },
   subjectRemark: { fontSize: 12, color: '#cbd5e1', fontStyle: 'italic' },
+  miniBarBg: { height: 4, backgroundColor: '#0f172a', borderRadius: 2, overflow: 'hidden' },
+  miniBarFill: { height: '100%', borderRadius: 2 },
 
   emptyCard: { backgroundColor: '#1e293b', padding: 32, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   emptyTitle: { color: '#f8fafc', fontSize: 16, fontWeight: 'bold' },

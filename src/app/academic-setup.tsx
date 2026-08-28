@@ -28,6 +28,7 @@ import {
   Trash2,
   User,
   GraduationCap,
+  Building2,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,7 +42,7 @@ import { apiClient } from '@/lib/api-client';
 export default function AcademicSetupScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'sessions' | 'terms' | 'classes'>('sessions');
+  const [activeTab, setActiveTab] = useState<'sessions' | 'terms' | 'classes' | 'bank'>('sessions');
 
   // Modals
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -83,6 +84,53 @@ export default function AcademicSetupScreen() {
   });
 
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    accountName: '',
+    accountNumber: '',
+  });
+
+  // 0. Fetch Current School Info & Bank Account
+  const { data: mySchoolData } = useQuery({
+    queryKey: ['admin-school-info'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/schools/my-school');
+        return res?.data || null;
+      } catch {
+        return null;
+      }
+    },
+  });
+
+  React.useEffect(() => {
+    if (mySchoolData) {
+      setBankForm({
+        bankName: mySchoolData.bankName || '',
+        accountName: mySchoolData.accountName || '',
+        accountNumber: mySchoolData.accountNumber || '',
+      });
+    }
+  }, [mySchoolData]);
+
+  const updateBankDetailsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiClient.patch('/schools/my-school', {
+        bankName: bankForm.bankName.trim(),
+        accountName: bankForm.accountName.trim(),
+        accountNumber: bankForm.accountNumber.trim(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-school-info'] });
+      queryClient.invalidateQueries({ queryKey: ['parent-school-bank-details'] });
+      Alert.alert('Success 🏦', 'Official School Bank Account details updated successfully!');
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to update bank details.');
+    },
+  });
 
   // 1. Fetch Sessions
   const { data: sessionsList = [], isLoading: isLoadingSessions, refetch: refetchSessions } = useQuery({
@@ -402,6 +450,16 @@ export default function AcademicSetupScreen() {
               Classes ({classesList.length})
             </ThemedText>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'bank' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('bank')}
+          >
+            <Building2 size={16} color={activeTab === 'bank' ? '#38bdf8' : '#64748b'} />
+            <ThemedText style={[styles.tabBtnText, activeTab === 'bank' && styles.tabBtnTextActive]}>
+              Bank Account
+            </ThemedText>
+          </TouchableOpacity>
         </View>
 
         {/* TAB 1: SESSIONS */}
@@ -565,6 +623,75 @@ export default function AcademicSetupScreen() {
                 })}
               </View>
             )}
+          </View>
+        )}
+
+        {/* TAB 4: BANK ACCOUNT */}
+        {activeTab === 'bank' && (
+          <View style={{ gap: 14 }}>
+            <View style={styles.sectionHeader}>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.sectionTitle}>Official School Bank Account</ThemedText>
+                <ThemedText style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                  Set up your school's official bank account details to display on parent fee statements
+                </ThemedText>
+              </View>
+            </View>
+
+            <ThemedView style={styles.bankCardForm}>
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Bank Name *</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. Zenith Bank, GTBank, Wema Bank"
+                  placeholderTextColor="#64748b"
+                  value={bankForm.bankName}
+                  onChangeText={(val) => setBankForm((p) => ({ ...p, bankName: val }))}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Account Name *</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. Greenwood International School Fees Account"
+                  placeholderTextColor="#64748b"
+                  value={bankForm.accountName}
+                  onChangeText={(val) => setBankForm((p) => ({ ...p, accountName: val }))}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Account Number *</ThemedText>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g. 1012345678"
+                  placeholderTextColor="#64748b"
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  value={bankForm.accountNumber}
+                  onChangeText={(val) => setBankForm((p) => ({ ...p, accountNumber: val }))}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.submitBtn,
+                  updateBankDetailsMutation.isPending && { opacity: 0.6 },
+                ]}
+                disabled={updateBankDetailsMutation.isPending}
+                onPress={() => updateBankDetailsMutation.mutate()}
+              >
+                {updateBankDetailsMutation.isPending ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Building2 size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                    <ThemedText style={styles.submitBtnText}>Save Bank Details</ThemedText>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </ThemedView>
           </View>
         )}
       </ScrollView>
@@ -1037,4 +1164,7 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#0284c7', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 12 },
   saveBtnText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
   btnDisabled: { opacity: 0.5 },
+  bankCardForm: { backgroundColor: '#1e293b', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#334155', gap: 12 },
+  submitBtn: { backgroundColor: '#0284c7', height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  submitBtnText: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
 });

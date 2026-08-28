@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -126,6 +126,83 @@ export default function StaffAttendanceScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'present' | 'late' | 'absent'>('all');
 
+  // Single Roster Date Selection State (Admin)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [rosterDate, setRosterDate] = useState<string>(todayStr);
+  const [rosterDatePreset, setRosterDatePreset] = useState<'today' | 'yesterday' | '2days' | 'custom'>('today');
+  const [showRosterDateModal, setShowRosterDateModal] = useState<boolean>(false);
+  const [customRosterInput, setCustomRosterInput] = useState<string>('');
+
+  // Date Range History Filter State (Admin & Staff)
+  const [historyPreset, setHistoryPreset] = useState<'7days' | '30days' | 'month' | 'custom'>('7days');
+  const [historyStartDate, setHistoryStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  });
+  const [historyEndDate, setHistoryEndDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [showHistoryRangeModal, setShowHistoryRangeModal] = useState<boolean>(false);
+  const [customStartInput, setCustomStartInput] = useState<string>('');
+  const [customEndInput, setCustomEndInput] = useState<string>('');
+
+  // Date handlers for Roster Tab
+  const handleSelectRosterDatePreset = (preset: 'today' | 'yesterday' | '2days' | 'custom') => {
+    setRosterDatePreset(preset);
+    const now = new Date();
+    if (preset === 'today') {
+      setRosterDate(now.toISOString().split('T')[0]);
+    } else if (preset === 'yesterday') {
+      now.setDate(now.getDate() - 1);
+      setRosterDate(now.toISOString().split('T')[0]);
+    } else if (preset === '2days') {
+      now.setDate(now.getDate() - 2);
+      setRosterDate(now.toISOString().split('T')[0]);
+    } else if (preset === 'custom') {
+      setCustomRosterInput(rosterDate);
+      setShowRosterDateModal(true);
+    }
+  };
+
+  const handleApplyCustomRosterDate = () => {
+    if (customRosterInput.trim()) {
+      setRosterDate(customRosterInput.trim());
+    }
+    setShowRosterDateModal(false);
+  };
+
+  // Date handlers for History Tab
+  const handleSelectHistoryRangePreset = (preset: '7days' | '30days' | 'month' | 'custom') => {
+    setHistoryPreset(preset);
+    const end = new Date();
+    const endStr = end.toISOString().split('T')[0];
+    setHistoryEndDate(endStr);
+
+    if (preset === '7days') {
+      const start = new Date();
+      start.setDate(start.getDate() - 7);
+      setHistoryStartDate(start.toISOString().split('T')[0]);
+    } else if (preset === '30days') {
+      const start = new Date();
+      start.setDate(start.getDate() - 30);
+      setHistoryStartDate(start.toISOString().split('T')[0]);
+    } else if (preset === 'month') {
+      const start = new Date(end.getFullYear(), end.getMonth(), 1);
+      setHistoryStartDate(start.toISOString().split('T')[0]);
+    } else if (preset === 'custom') {
+      setCustomStartInput(historyStartDate);
+      setCustomEndInput(historyEndDate);
+      setShowHistoryRangeModal(true);
+    }
+  };
+
+  const handleApplyCustomHistoryRange = () => {
+    if (customStartInput.trim() && customEndInput.trim()) {
+      setHistoryStartDate(customStartInput.trim());
+      setHistoryEndDate(customEndInput.trim());
+    }
+    setShowHistoryRangeModal(false);
+  };
+
   // Manual Override Modal (Admin)
   const [selectedStaffForOverride, setSelectedStaffForOverride] = useState<any>(null);
   const [overrideStatus, setOverrideStatus] = useState<'present' | 'late' | 'absent' | 'excused'>('present');
@@ -154,35 +231,77 @@ export default function StaffAttendanceScreen() {
     },
   });
 
-  // 2. Fetch Today's HRM Summary & Roster (Admin / Accountant)
+  // 2. Fetch HRM Summary & Roster for Selected Date (Admin / Accountant)
   const {
     data: todaySummaryData,
     isLoading: isLoadingSummary,
     refetch: refetchSummary,
   } = useQuery({
-    queryKey: ['staff-today-summary'],
+    queryKey: ['staff-today-summary', rosterDate],
     enabled: isAdmin,
     queryFn: async () => {
-      const res = await apiClient.get('/staff-attendance/today-summary');
+      const params: any = {};
+      if (rosterDate) params.date = rosterDate;
+      const res = await apiClient.get('/staff-attendance/today-summary', { params });
       return res.data;
     },
   });
 
-  // 3. Fetch My Attendance History Log
+  // 3. Fetch Attendance History Log (School-wide for Admin, Personal for Staff)
   const {
     data: myHistoryLogs = [],
     isLoading: isLoadingHistory,
     refetch: refetchHistory,
   } = useQuery({
-    queryKey: ['staff-my-history'],
+    queryKey: ['staff-history-logs', isAdmin, historyStartDate, historyEndDate],
     queryFn: async () => {
-      const res = await apiClient.get('/staff-attendance/my-attendance');
+      const endpoint = isAdmin ? '/staff-attendance/all-logs' : '/staff-attendance/my-attendance';
+      const params: any = {};
+      if (historyStartDate) params.startDate = historyStartDate;
+      if (historyEndDate) params.endDate = historyEndDate;
+
+      const res = await apiClient.get(endpoint, { params });
       const raw = res.data;
       if (Array.isArray(raw)) return raw;
       if (Array.isArray(raw?.data)) return raw.data;
       return [];
     },
   });
+
+  // Group history logs by date (reverse chronological order)
+  const groupedHistoryLogs = useMemo(() => {
+    const map: Record<string, any[]> = {};
+
+    myHistoryLogs.forEach((log: any) => {
+      const rawDateStr = log.checkInTimestamp || log.date;
+      if (!rawDateStr) return;
+
+      const dateObj = new Date(rawDateStr);
+      // Extract local year, month, day to prevent UTC timezone offset shifts
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+
+      if (!map[dateKey]) {
+        map[dateKey] = [];
+      }
+      map[dateKey].push(log);
+    });
+
+    const sortedDates = Object.keys(map).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+    return sortedDates.map((dateKey) => ({
+      dateKey,
+      formattedDate: new Date(dateKey + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      logs: map[dateKey],
+    }));
+  }, [myHistoryLogs]);
 
   // Clock In Mutation
   const clockInMutation = useMutation({
@@ -528,6 +647,57 @@ export default function StaffAttendanceScreen() {
         {/* TAB 2: HRM ROSTER & TODAY SUMMARY (ADMIN / ACCOUNTANT) */}
         {activeTab === 'roster' && isAdmin && (
           <View style={{ gap: 14 }}>
+            {/* Single Roster Date Selector Card */}
+            <ThemedView style={styles.dateSelectorCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <ThemedText style={styles.dateSelectorTitle}>ROSTER DATE</ThemedText>
+                <Badge
+                  label={rosterDate === todayStr ? 'TODAY' : rosterDate}
+                  variant={rosterDate === todayStr ? 'info' : 'warning'}
+                  size="sm"
+                />
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.datePill, rosterDatePreset === 'today' && styles.datePillActive]}
+                  onPress={() => handleSelectRosterDatePreset('today')}
+                >
+                  <ThemedText style={[styles.datePillText, rosterDatePreset === 'today' && styles.datePillTextActive]}>
+                    Today
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.datePill, rosterDatePreset === 'yesterday' && styles.datePillActive]}
+                  onPress={() => handleSelectRosterDatePreset('yesterday')}
+                >
+                  <ThemedText style={[styles.datePillText, rosterDatePreset === 'yesterday' && styles.datePillTextActive]}>
+                    Yesterday
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.datePill, rosterDatePreset === '2days' && styles.datePillActive]}
+                  onPress={() => handleSelectRosterDatePreset('2days')}
+                >
+                  <ThemedText style={[styles.datePillText, rosterDatePreset === '2days' && styles.datePillTextActive]}>
+                    2 Days Ago
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.datePill, rosterDatePreset === 'custom' && styles.datePillActive]}
+                  onPress={() => handleSelectRosterDatePreset('custom')}
+                >
+                  <Calendar size={13} color={rosterDatePreset === 'custom' ? '#38bdf8' : '#94a3b8'} style={{ marginRight: 4 }} />
+                  <ThemedText style={[styles.datePillText, rosterDatePreset === 'custom' && styles.datePillTextActive]}>
+                    Custom Date
+                  </ThemedText>
+                </TouchableOpacity>
+              </ScrollView>
+            </ThemedView>
+
             {/* Admin Campus GPS Location Config Banner */}
             <ThemedView style={styles.locationConfigBanner}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -701,62 +871,150 @@ export default function StaffAttendanceScreen() {
           </View>
         )}
 
-        {/* TAB 3: PERSONAL HISTORY LOGS */}
+        {/* TAB 3: HISTORY LOGS & DATE RANGE FILTER */}
         {activeTab === 'history' && (
           <View style={{ gap: 12 }}>
-            <ThemedText style={styles.sectionTitle}>Attendance Logs ({myHistoryLogs.length})</ThemedText>
+            {/* Date Range Filter Card */}
+            <ThemedView style={styles.dateSelectorCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <ThemedText style={styles.dateSelectorTitle}>DATE RANGE FILTER</ThemedText>
+                <ThemedText style={{ fontSize: 11, color: '#38bdf8', fontWeight: 'bold' }}>
+                  {historyStartDate} to {historyEndDate}
+                </ThemedText>
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.datePill, historyPreset === '7days' && styles.datePillActive]}
+                  onPress={() => handleSelectHistoryRangePreset('7days')}
+                >
+                  <ThemedText style={[styles.datePillText, historyPreset === '7days' && styles.datePillTextActive]}>
+                    Last 7 Days
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.datePill, historyPreset === '30days' && styles.datePillActive]}
+                  onPress={() => handleSelectHistoryRangePreset('30days')}
+                >
+                  <ThemedText style={[styles.datePillText, historyPreset === '30days' && styles.datePillTextActive]}>
+                    Last 30 Days
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.datePill, historyPreset === 'month' && styles.datePillActive]}
+                  onPress={() => handleSelectHistoryRangePreset('month')}
+                >
+                  <ThemedText style={[styles.datePillText, historyPreset === 'month' && styles.datePillTextActive]}>
+                    This Month
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.datePill, historyPreset === 'custom' && styles.datePillActive]}
+                  onPress={() => handleSelectHistoryRangePreset('custom')}
+                >
+                  <Calendar size={13} color={historyPreset === 'custom' ? '#38bdf8' : '#94a3b8'} style={{ marginRight: 4 }} />
+                  <ThemedText style={[styles.datePillText, historyPreset === 'custom' && styles.datePillTextActive]}>
+                    Custom Range
+                  </ThemedText>
+                </TouchableOpacity>
+              </ScrollView>
+            </ThemedView>
+
+            <ThemedText style={styles.sectionTitle}>
+              {isAdmin ? 'School Staff Attendance Logs' : 'My Attendance Logs'} ({myHistoryLogs.length})
+            </ThemedText>
 
             {isLoadingHistory ? (
               <ActivityIndicator size="large" color="#0284c7" style={{ marginTop: 40 }} />
-            ) : myHistoryLogs.length === 0 ? (
+            ) : groupedHistoryLogs.length === 0 ? (
               <ThemedView style={styles.emptyCard}>
                 <Clock size={36} color="#64748b" style={{ marginBottom: 8 }} />
                 <ThemedText style={styles.emptyTitle}>No History Logs Recorded</ThemedText>
+                <ThemedText style={styles.emptySub}>No attendance logs found for the selected date range.</ThemedText>
               </ThemedView>
             ) : (
-              <View style={{ gap: 10 }}>
-                {myHistoryLogs.map((log: any) => {
-                  const logDate = new Date(log.date).toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                  });
+              <View style={{ gap: 16 }}>
+                {groupedHistoryLogs.map((group: any) => (
+                  <View key={group.dateKey} style={{ gap: 8 }}>
+                    {/* Date Section Header */}
+                    <View style={styles.dateGroupHeader}>
+                      <Calendar size={15} color="#38bdf8" />
+                      <ThemedText style={styles.dateGroupHeaderTitle}>{group.formattedDate}</ThemedText>
+                      <Badge
+                        label={`${group.logs.length} ${group.logs.length === 1 ? 'Log' : 'Logs'}`}
+                        variant="info"
+                        size="sm"
+                      />
+                    </View>
 
-                  return (
-                    <ThemedView key={log._id || log.id} style={styles.historyCard}>
-                      <View style={styles.historyHeader}>
-                        <Calendar size={16} color="#38bdf8" />
-                        <ThemedText style={styles.historyDateText}>{logDate}</ThemedText>
-                        <Badge
-                          label={(log.status || 'PRESENT').toUpperCase()}
-                          variant={log.isLate || log.status === 'late' ? 'warning' : 'success'}
-                          size="sm"
-                        />
-                      </View>
+                    {/* Attendance Cards under this date */}
+                    <View style={{ gap: 8 }}>
+                      {group.logs.map((log: any, idx: number) => {
+                        const staffName = log.userId?.fullName || (typeof log.userId === 'string' ? log.userId : 'Staff Member');
+                        const staffRole = (log.userId?.role || '').toUpperCase();
+                        const statusLabel = (log.status || (log.isLate ? 'LATE' : 'PRESENT')).toUpperCase();
+                        const statusVariant = log.isLate || log.status === 'late' ? 'warning' : log.status === 'absent' ? 'danger' : 'success';
 
-                      <View style={styles.cardDivider} />
+                        return (
+                          <ThemedView key={log._id || log.id || idx} style={styles.historyCard}>
+                            {isAdmin ? (
+                              <View style={styles.rosterHeader}>
+                                <View style={styles.avatarBox}>
+                                  <ThemedText style={styles.avatarText}>
+                                    {(staffName || 'S').charAt(0).toUpperCase()}
+                                  </ThemedText>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <ThemedText style={styles.staffNameText}>{staffName}</ThemedText>
+                                  <ThemedText style={styles.staffRoleText}>{log.userId?.email || staffRole}</ThemedText>
+                                </View>
+                                <Badge label={statusLabel} variant={statusVariant} size="sm" />
+                              </View>
+                            ) : (
+                              <View style={styles.nonAdminHistoryHeader}>
+                                <ThemedText style={styles.historyHeaderUserTitle}>Clock-in Record</ThemedText>
+                                <Badge label={statusLabel} variant={statusVariant} size="sm" />
+                              </View>
+                            )}
 
-                      <View style={styles.historyBody}>
-                        <View style={styles.historyMetaCol}>
-                          <ThemedText style={styles.historyMetaLabel}>Check In</ThemedText>
-                          <ThemedText style={styles.historyMetaVal}>{log.checkInTime || '-'}</ThemedText>
-                        </View>
+                            <View style={styles.cardDivider} />
 
-                        <View style={styles.historyMetaCol}>
-                          <ThemedText style={styles.historyMetaLabel}>Check Out</ThemedText>
-                          <ThemedText style={styles.historyMetaVal}>{log.checkOutTime || '-'}</ThemedText>
-                        </View>
+                            <View style={styles.historyBody}>
+                              <View style={styles.historyMetaCol}>
+                                <ThemedText style={styles.historyMetaLabel}>Check In</ThemedText>
+                                <ThemedText style={styles.historyMetaVal}>{log.checkInTime || '-'}</ThemedText>
+                              </View>
 
-                        <View style={styles.historyMetaCol}>
-                          <ThemedText style={styles.historyMetaLabel}>Duration</ThemedText>
-                          <ThemedText style={[styles.historyMetaVal, { color: '#38bdf8' }]}>
-                            {log.durationText || (log.hoursWorked ? `${log.hoursWorked} hrs` : '-')}
-                          </ThemedText>
-                        </View>
-                      </View>
-                    </ThemedView>
-                  );
-                })}
+                              <View style={styles.historyMetaCol}>
+                                <ThemedText style={styles.historyMetaLabel}>Check Out</ThemedText>
+                                <ThemedText style={styles.historyMetaVal}>{log.checkOutTime || '-'}</ThemedText>
+                              </View>
+
+                              <View style={styles.historyMetaCol}>
+                                <ThemedText style={styles.historyMetaLabel}>Duration</ThemedText>
+                                <ThemedText style={[styles.historyMetaVal, { color: '#38bdf8' }]}>
+                                  {log.durationText || (log.hoursWorked ? `${log.hoursWorked} hrs` : '-')}
+                                </ThemedText>
+                              </View>
+                            </View>
+
+                            {log.distanceFromSchoolMeters !== null && log.distanceFromSchoolMeters !== undefined && (
+                              <View style={styles.distanceRow}>
+                                <MapPin size={12} color="#38bdf8" />
+                                <ThemedText style={styles.distanceText}>
+                                  Location: {log.distanceFromSchoolMeters}m from campus
+                                </ThemedText>
+                              </View>
+                            )}
+                          </ThemedView>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
               </View>
             )}
           </View>
@@ -883,6 +1141,74 @@ export default function StaffAttendanceScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      {/* ROSTER CUSTOM DATE MODAL */}
+      <Modal visible={showRosterDateModal} animationType="slide" transparent onRequestClose={() => setShowRosterDateModal(false)}>
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Select Roster Date</ThemedText>
+              <TouchableOpacity onPress={() => setShowRosterDateModal(false)}>
+                <X size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 16, gap: 14 }}>
+              <ThemedText style={styles.inputLabel}>Target Date (YYYY-MM-DD)</ThemedText>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g. 2026-08-25"
+                placeholderTextColor="#94a3b8"
+                value={customRosterInput}
+                onChangeText={setCustomRosterInput}
+              />
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleApplyCustomRosterDate}>
+                <ThemedText style={styles.confirmBtnText}>Apply Date Filter</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* HISTORY CUSTOM RANGE MODAL */}
+      <Modal visible={showHistoryRangeModal} animationType="slide" transparent onRequestClose={() => setShowHistoryRangeModal(false)}>
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={styles.modalTitle}>Select Attendance Date Range</ThemedText>
+              <TouchableOpacity onPress={() => setShowHistoryRangeModal(false)}>
+                <X size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 16, gap: 14 }}>
+              <View style={{ gap: 4 }}>
+                <ThemedText style={styles.inputLabel}>Start Date (YYYY-MM-DD)</ThemedText>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 2026-08-01"
+                  placeholderTextColor="#94a3b8"
+                  value={customStartInput}
+                  onChangeText={setCustomStartInput}
+                />
+              </View>
+
+              <View style={{ gap: 4 }}>
+                <ThemedText style={styles.inputLabel}>End Date (YYYY-MM-DD)</ThemedText>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g. 2026-08-28"
+                  placeholderTextColor="#94a3b8"
+                  value={customEndInput}
+                  onChangeText={setCustomEndInput}
+                />
+              </View>
+
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleApplyCustomHistoryRange}>
+                <ThemedText style={styles.confirmBtnText}>Apply Range Filter</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -910,6 +1236,14 @@ const styles = StyleSheet.create({
   tabBtnTextActive: { color: '#38bdf8', fontWeight: 'bold' },
 
   content: { padding: 16 },
+
+  // Date Selector & Range Pills
+  dateSelectorCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#334155' },
+  dateSelectorTitle: { fontSize: 11, fontWeight: 'bold', color: '#38bdf8', letterSpacing: 0.5 },
+  datePill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155' },
+  datePillActive: { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8' },
+  datePillText: { fontSize: 11, fontWeight: '600', color: '#94a3b8' },
+  datePillTextActive: { color: '#38bdf8', fontWeight: 'bold' },
 
   // Digital Clock Banner
   clockBannerCard: {
@@ -996,6 +1330,10 @@ const styles = StyleSheet.create({
 
   // History Log Cards
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#f8fafc' },
+  dateGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingHorizontal: 2 },
+  dateGroupHeaderTitle: { flex: 1, fontSize: 13, fontWeight: 'bold', color: '#f8fafc' },
+  nonAdminHistoryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  historyHeaderUserTitle: { fontSize: 13, fontWeight: 'bold', color: '#f8fafc' },
   historyCard: { backgroundColor: '#1e293b', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#334155', gap: 8 },
   historyHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   historyDateText: { flex: 1, fontSize: 14, fontWeight: 'bold', color: '#f8fafc' },
@@ -1006,6 +1344,7 @@ const styles = StyleSheet.create({
 
   emptyCard: { backgroundColor: '#1e293b', padding: 32, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   emptyTitle: { color: '#f8fafc', fontSize: 15, fontWeight: 'bold' },
+  emptySub: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 4 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#0f172a', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 24 },
