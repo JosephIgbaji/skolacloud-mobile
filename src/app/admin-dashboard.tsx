@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import {
+  Briefcase,
   Calendar,
   CheckCircle2,
   Clock,
@@ -11,7 +12,6 @@ import {
   Play,
   School as SchoolIcon,
   Square,
-  Briefcase,
 } from 'lucide-react-native';
 import {
   ActivityIndicator,
@@ -36,7 +36,7 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
 
   const userDisplayName = user?.name || user?.fullName || 'Admin';
-  const schoolName = (user as any)?.schoolName || 'SkolaCloud';
+  const schoolName = (user as any)?.schoolName || (user as any)?.school?.name || 'SkolaCloud';
 
   const currentDateStr = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
