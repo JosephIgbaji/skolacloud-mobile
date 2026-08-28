@@ -1,12 +1,12 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-const ACCESS_TOKEN_KEY = 'rimotehr_access_token';
-const REFRESH_TOKEN_KEY = 'rimotehr_refresh_token';
-const USER_KEY = 'rimotehr_user_data';
-const SUBDOMAIN_KEY = 'rimotehr_subdomain';
-const SAVED_SUBDOMAIN_KEY = 'rimotehr_saved_subdomain';
-const SAVED_EMAIL_KEY = 'rimotehr_saved_email';
+const ACCESS_TOKEN_KEY = 'skolacloud_access_token';
+const REFRESH_TOKEN_KEY = 'skolacloud_refresh_token';
+const USER_KEY = 'skolacloud_user_data';
+const SUBDOMAIN_KEY = 'skolacloud_subdomain';
+const SAVED_SUBDOMAIN_KEY = 'skolacloud_saved_subdomain';
+const SAVED_EMAIL_KEY = 'skolacloud_saved_email';
 
 export const storage = {
   async getItem(key: string): Promise<string | null> {
