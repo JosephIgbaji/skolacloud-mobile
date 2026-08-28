@@ -8,9 +8,11 @@
     "scheme": "skolacloud",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/PNG/1-8.png"
+      "icon": "./assets/PNG/1-8.png",
+      "bundleIdentifier": "com.skolacloud.app"
     },
     "android": {
+      "package": "com.skolacloud.app",
       "adaptiveIcon": {
         "backgroundColor": "#0f172a",
         "foregroundImage": "./assets/PNG/1-8.png",
