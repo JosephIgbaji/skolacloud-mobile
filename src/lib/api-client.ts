@@ -1,8 +1,22 @@
 import axios from 'axios';
 import { storage } from './storage';
 
-// Base API URL, defaulting to local dev backend API if EXPO_PUBLIC_API_URL is unset
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.88.98:4000/api/v1';
+// Formatter helper to ensure BASE_URL always ends with NestJS global prefix /api/v1
+const formatBaseUrl = (rawUrl?: string): string => {
+  let url = (rawUrl || '').trim();
+  if (!url) return 'http://192.168.88.98:4000/api/v1';
+  url = url.replace(/\/+$/, ''); // Strip trailing slashes
+  if (!url.endsWith('/api/v1')) {
+    if (url.endsWith('/api')) {
+      url = `${url}/v1`;
+    } else {
+      url = `${url}/api/v1`;
+    }
+  }
+  return url;
+};
+
+const BASE_URL = formatBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
