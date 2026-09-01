@@ -4,7 +4,7 @@
     "slug": "skolacloud",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/PNG/2-8.png",
+    "icon": "./assets/PNG/7-8.png",
     "scheme": "skolacloud",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -29,9 +29,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/PNG/2-8.png",
+          "image": "./assets/PNG/7-8.png",
           "dark": {
-            "image": "./assets/PNG/8-8.png"
+            "image": "./assets/PNG/7-8.png"
           }
         }
       ],
